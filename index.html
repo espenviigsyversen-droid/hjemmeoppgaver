@@ -397,7 +397,7 @@
         <span>Bruker</span>
         <select id="currentUser" aria-label="Velg bruker">
           <option value="Espen">Espen</option>
-          <option value="Person 2">Person 2</option>
+          <option value="Line">Line</option>
         </select>
       </div>
     </header>
@@ -411,9 +411,7 @@
 
     <main>
       <section id="dashboard" class="panel active">
-        <div class="notice">
-          Prototype bruker lokal lagring i nettleseren. Neste steg er å erstatte dette med Firebase Firestore for sanntidssynk mellom to brukere.
-        </div>
+        
 
         <div class="summary-grid">
           <div class="summary-card"><strong id="totalDue">0</strong><span>oppgaver denne uken</span></div>
@@ -473,7 +471,7 @@
                 <select id="taskAssignedTo">
                   <option value="both">Begge</option>
                   <option value="Espen">Espen</option>
-                  <option value="Person 2">Person 2</option>
+                  <option value="Line">Line</option>
                 </select>
               </div>
               <div class="full actions" style="justify-content:flex-start; margin-top: 6px;">
@@ -532,6 +530,7 @@
                 <th>Kategori</th>
                 <th>Utført av</th>
                 <th>Planlagt uke</th>
+                <th>Handling</th>
               </tr>
             </thead>
             <tbody id="historyTable"></tbody>
@@ -576,7 +575,7 @@
     const completionsRef = collection(db, householdPath, "completions");
 
     let state = {
-      users: ["Espen", "Person 2"],
+      users: ["Espen", "Line"],
       categories: [],
       tasks: [],
       completions: []
@@ -743,13 +742,20 @@
       document.getElementById("totalRemaining").textContent = remaining;
 
       const container = document.getElementById("dashboardTasks");
+      const visibleTasks = dueTasks.filter(task => !isCompletedThisWeek(task.id));
+
       if (dueTasks.length === 0) {
         container.innerHTML = `<div class="empty-state">Ingen oppgaver denne uken. Legg til en ny oppgave for å komme i gang.</div>`;
         return;
       }
 
-      container.innerHTML = dueTasks
-        .sort((a, b) => Number(isCompletedThisWeek(a.id)) - Number(isCompletedThisWeek(b.id)) || a.title.localeCompare(b.title))
+      if (visibleTasks.length === 0) {
+        container.innerHTML = `<div class="empty-state">Alle oppgaver for denne uken er utført. Du kan angre utførelse fra Historikk-fanen.</div>`;
+        return;
+      }
+
+      container.innerHTML = visibleTasks
+        .sort((a, b) => a.title.localeCompare(b.title))
         .map(task => renderTaskCard(task, { dashboard: true }))
         .join("");
     }
@@ -818,7 +824,7 @@
         }
       } else {
         const completion = getCompletionThisWeek(taskId);
-        if (completion) await deleteDoc(doc(db, householdPath, "completions", completion.id));
+        if (completion) await deleteDoc(doc(db, "households", HOUSEHOLD_ID, "completions", completion.id));
       }
     }
 
@@ -827,7 +833,7 @@
 
       const editingId = document.getElementById("editingTaskId").value;
       const assignedValue = document.getElementById("taskAssignedTo").value;
-      const assignedTo = assignedValue === "both" ? ["Espen", "Person 2"] : [assignedValue];
+      const assignedTo = assignedValue === "both" ? ["Espen", "Line"] : [assignedValue];
 
       const taskData = {
         title: document.getElementById("taskTitle").value.trim(),
@@ -842,7 +848,7 @@
       };
 
       if (editingId) {
-        await updateDoc(doc(db, householdPath, "tasks", editingId), taskData);
+        await updateDoc(doc(db, "households", HOUSEHOLD_ID, "tasks", editingId), taskData);
       } else {
         await addDoc(tasksRef, {
           ...taskData,
@@ -873,7 +879,7 @@
 
     async function deactivateTask(taskId) {
       if (!confirm("Vil du deaktivere denne oppgaven? Historikk beholdes.")) return;
-      await updateDoc(doc(db, householdPath, "tasks", taskId), {
+      await updateDoc(doc(db, "households", HOUSEHOLD_ID, "tasks", taskId), {
         isActive: false,
         updatedAt: new Date().toISOString()
       });
@@ -942,13 +948,13 @@
         alert("Denne kategorien brukes av aktive oppgaver. Endre oppgavene først.");
         return;
       }
-      await updateDoc(doc(db, householdPath, "categories", categoryId), { isActive: false });
+      await updateDoc(doc(db, "households", HOUSEHOLD_ID, "categories", categoryId), { isActive: false });
     }
 
     function renderHistory() {
       const table = document.getElementById("historyTable");
       if (state.completions.length === 0) {
-        table.innerHTML = `<tr><td colspan="5">Ingen historikk ennå.</td></tr>`;
+        table.innerHTML = `<tr><td colspan="6">Ingen historikk ennå.</td></tr>`;
         return;
       }
 
@@ -961,8 +967,20 @@
             <td>${escapeHtml(item.categoryNameSnapshot)}</td>
             <td>${escapeHtml(item.completedBy)}</td>
             <td>${formatDate(item.weekStartDate)}</td>
+            <td><button type="button" class="btn-light" onclick="undoCompletion('${item.id}')">Angre utført</button></td>
           </tr>
         `).join("");
+    }
+
+    async function undoCompletion(completionId) {
+      if (!confirm("Vil du angre denne utførelsen? Oppgaven vil dukke opp på dashboardet igjen hvis den fortsatt gjelder denne uken.")) return;
+
+      try {
+        await deleteDoc(doc(db, "households", HOUSEHOLD_ID, "completions", completionId));
+      } catch (error) {
+        console.error("Kunne ikke angre utførelse:", error);
+        alert("Klarte ikke å angre utførelsen. Sjekk at Firestore Rules fortsatt tillater sletting.");
+      }
     }
 
     async function clearHistory() {
@@ -1044,6 +1062,7 @@
     window.resetTaskForm = resetTaskForm;
     window.toggleCustomInterval = toggleCustomInterval;
     window.deleteCategory = deleteCategory;
+    window.undoCompletion = undoCompletion;
     window.clearHistory = clearHistory;
 
     init().catch(error => {
