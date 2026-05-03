@@ -543,6 +543,10 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
     import {
+      getAuth,
+      signInAnonymously
+    } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
+    import {
       getFirestore,
       collection,
       doc,
@@ -565,6 +569,7 @@
     };
 
     const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
     const db = getFirestore(app);
 
     const HOUSEHOLD_ID = "home";
@@ -1050,6 +1055,7 @@
 
       resetTaskForm();
       renderAll();
+      await signInAnonymously(auth);
       await seedDefaultCategoriesIfNeeded();
       subscribeToFirestore();
       hasRenderedInitial = true;
