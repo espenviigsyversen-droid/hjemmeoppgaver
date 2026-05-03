@@ -352,6 +352,31 @@
       flex: 0 0 auto;
     }
 
+    .color-picker {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      min-height: 45px;
+    }
+
+    .color-swatch {
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      padding: 0;
+      border: 2px solid var(--white);
+      box-shadow: 0 0 0 1px var(--warm-gray-2);
+    }
+
+    .color-swatch:hover {
+      transform: translateY(-1px);
+    }
+
+    .color-swatch.active {
+      box-shadow: 0 0 0 3px var(--black);
+    }
+
     .notice {
       background: var(--light-pink);
       border-radius: var(--radius);
@@ -390,7 +415,7 @@
   <div class="app">
     <header>
       <div class="brand">
-        <h1>Hjemmeoppgaver</h1>
+        <h1>Husarbeid</h1>
         <div class="subtitle">Delt ukesoversikt for hjemmet</div>
       </div>
       <div class="user-box">
@@ -498,14 +523,15 @@
             </div>
             <div>
               <label for="categoryColor">Farge</label>
-              <select id="categoryColor">
-                <option value="#FF5A5F">Primary</option>
-                <option value="#ffd7d7">Light Pink</option>
-                <option value="#FF2E88">Bright Pink</option>
-                <option value="#7A1E3A">Burgundy</option>
-                <option value="#6B4EFF">Purple</option>
-                <option value="#e8e2dc">Warm Gray 2</option>
-              </select>
+              <input id="categoryColor" type="hidden" value="#FF5A5F" />
+              <div class="color-picker" aria-label="Velg kategorifarge">
+                <button class="color-swatch active" type="button" data-color="#FF5A5F" style="background:#FF5A5F" aria-label="Korall"></button>
+                <button class="color-swatch" type="button" data-color="#ffd7d7" style="background:#ffd7d7" aria-label="Lys rosa"></button>
+                <button class="color-swatch" type="button" data-color="#FF2E88" style="background:#FF2E88" aria-label="Rosa"></button>
+                <button class="color-swatch" type="button" data-color="#7A1E3A" style="background:#7A1E3A" aria-label="Burgunder"></button>
+                <button class="color-swatch" type="button" data-color="#6B4EFF" style="background:#6B4EFF" aria-label="Lilla"></button>
+                <button class="color-swatch" type="button" data-color="#e8e2dc" style="background:#e8e2dc" aria-label="Varm grå"></button>
+              </div>
             </div>
             <div class="full actions" style="justify-content:flex-start;">
               <button class="btn-primary" type="submit">Legg til kategori</button>
@@ -903,6 +929,13 @@
       document.getElementById("customIntervalWrap").style.display = frequency === "customWeeks" ? "block" : "none";
     }
 
+    function selectCategoryColor(color) {
+      document.getElementById("categoryColor").value = color;
+      document.querySelectorAll(".color-swatch").forEach(swatch => {
+        swatch.classList.toggle("active", swatch.dataset.color === color);
+      });
+    }
+
     async function handleCategorySubmit(event) {
       event.preventDefault();
       const name = document.getElementById("categoryName").value.trim();
@@ -917,6 +950,7 @@
       });
 
       document.getElementById("categoryForm").reset();
+      selectCategoryColor("#FF5A5F");
     }
 
     function renderCategories() {
@@ -1045,6 +1079,9 @@
       document.getElementById("taskForm").addEventListener("submit", handleTaskSubmit);
       document.getElementById("categoryForm").addEventListener("submit", handleCategorySubmit);
       document.getElementById("taskFrequency").addEventListener("change", toggleCustomInterval);
+      document.querySelectorAll(".color-swatch").forEach(swatch => {
+        swatch.addEventListener("click", () => selectCategoryColor(swatch.dataset.color));
+      });
 
       document.getElementById("currentUser").addEventListener("change", event => {
         localStorage.setItem("homeTasksPrototype.currentUser", event.target.value);
