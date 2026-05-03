@@ -416,63 +416,72 @@
       text-align: center;
     }
 
-    .calendar-weekdays,
     .calendar-grid {
-      display: grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
+      display: flex;
+      flex-direction: column;
       gap: 10px;
     }
 
-    .calendar-weekday {
-      color: var(--warm-gray-3);
-      font-weight: 900;
-      text-align: center;
-      padding: 0 0 8px;
-    }
-
-    .calendar-day {
-      min-height: 116px;
+    .calendar-week-row {
+      display: grid;
+      grid-template-columns: minmax(92px, 132px) 1fr;
+      gap: 12px;
+      align-items: stretch;
       border: 1px solid var(--warm-gray-2);
       border-radius: 14px;
-      padding: 10px;
+      padding: 12px;
       background: var(--white);
-      overflow: hidden;
     }
 
-    .calendar-day.muted {
+    .calendar-week-row.muted {
       background: var(--warm-gray-1);
       color: var(--warm-gray-3);
       opacity: 0.64;
     }
 
-    .calendar-day.today {
+    .calendar-week-row.current {
       border-color: var(--primary);
       box-shadow: 0 0 0 2px #ff5a5f22;
     }
 
-    .calendar-day-number {
-      font-size: 18px;
+    .calendar-week-label {
+      border-radius: 12px;
+      background: var(--warm-gray-1);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .calendar-week-number {
+      font-size: 20px;
       font-weight: 900;
-      margin-bottom: 8px;
+      color: var(--black);
+    }
+
+    .calendar-week-dates {
+      font-size: 13px;
+      color: var(--warm-gray-3);
+      font-weight: 800;
     }
 
     .calendar-items {
-      display: grid;
-      gap: 6px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-content: center;
+      min-height: 62px;
     }
 
     .calendar-item {
       border-radius: 8px;
-      padding: 6px 7px;
-      font-size: 12px;
+      padding: 8px 10px;
+      font-size: 13px;
       font-weight: 800;
       line-height: 1.2;
       color: var(--black);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
+      max-width: 230px;
     }
 
     .calendar-item.done {
@@ -481,9 +490,16 @@
     }
 
     .calendar-more {
-      font-size: 12px;
+      font-size: 13px;
       color: var(--warm-gray-3);
       font-weight: 800;
+      align-self: center;
+    }
+
+    .calendar-empty-week {
+      color: var(--warm-gray-3);
+      font-weight: 800;
+      align-self: center;
     }
 
     .notice {
@@ -525,28 +541,36 @@
         font-size: 20px;
       }
 
-      .calendar-weekdays,
       .calendar-grid {
         gap: 6px;
       }
 
-      .calendar-weekday {
-        font-size: 13px;
-      }
-
-      .calendar-day {
-        min-height: 88px;
-        padding: 7px;
+      .calendar-week-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 10px;
         border-radius: 10px;
       }
 
-      .calendar-day-number {
-        font-size: 15px;
+      .calendar-week-label {
+        padding: 10px;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .calendar-week-number {
+        font-size: 16px;
+      }
+
+      .calendar-week-dates {
+        font-size: 12px;
       }
 
       .calendar-item {
-        font-size: 10px;
-        padding: 5px;
+        font-size: 12px;
+        padding: 7px 8px;
+        max-width: 100%;
       }
 
       .task-card {
@@ -705,15 +729,6 @@
             <button class="calendar-arrow" type="button" onclick="changeCalendarMonth(1)" aria-label="Neste måned">›</button>
           </div>
 
-          <div class="calendar-weekdays" aria-hidden="true">
-            <div class="calendar-weekday">Man</div>
-            <div class="calendar-weekday">Tir</div>
-            <div class="calendar-weekday">Ons</div>
-            <div class="calendar-weekday">Tor</div>
-            <div class="calendar-weekday">Fre</div>
-            <div class="calendar-weekday">Lør</div>
-            <div class="calendar-weekday">Søn</div>
-          </div>
           <div class="calendar-grid" id="calendarGrid"></div>
         </div>
       </section>
@@ -1211,11 +1226,8 @@
       return false;
     }
 
-    function getCalendarTasksForDate(date) {
-      const day = date.getDay() || 7;
-      if (day !== 1) return [];
-
-      const weekStartISO = toISO(date);
+    function getCalendarTasksForWeek(weekStartDate) {
+      const weekStartISO = toISO(weekStartDate);
       return state.tasks
         .filter(task => isTaskScheduledForWeek(task, weekStartISO))
         .sort((a, b) => a.title.localeCompare(b.title));
@@ -1230,31 +1242,40 @@
       const monthLabel = new Intl.DateTimeFormat("no-NO", { month: "long", year: "numeric" }).format(monthStart);
       title.textContent = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
-      const firstGridDate = startOfISOWeek(monthStart);
-      const today = todayISO();
-      const days = Array.from({ length: 42 }, (_, index) => addDays(firstGridDate, index));
+      const firstWeekStart = startOfISOWeek(monthStart);
+      const lastWeekStart = startOfISOWeek(new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0));
+      const weekStarts = [];
+      for (let weekStart = firstWeekStart; weekStart <= lastWeekStart; weekStart = addDays(weekStart, 7)) {
+        weekStarts.push(new Date(weekStart));
+      }
 
-      grid.innerHTML = days.map(date => {
-        const iso = toISO(date);
-        const tasks = getCalendarTasksForDate(date);
-        const visibleTasks = tasks.slice(0, 3);
+      const currentWeekStartISO = getWeekStartISO();
+
+      grid.innerHTML = weekStarts.map(weekStart => {
+        const weekStartISO = toISO(weekStart);
+        const weekEnd = addDays(weekStart, 6);
+        const tasks = getCalendarTasksForWeek(weekStart);
+        const visibleTasks = tasks.slice(0, 8);
         const hiddenCount = tasks.length - visibleTasks.length;
-        const isCurrentMonth = date.getMonth() === monthStart.getMonth();
-        const dayClasses = [
-          "calendar-day",
-          isCurrentMonth ? "" : "muted",
-          iso === today ? "today" : ""
+        const weekTouchesCurrentMonth = weekStart.getMonth() === monthStart.getMonth() || weekEnd.getMonth() === monthStart.getMonth();
+        const rowClasses = [
+          "calendar-week-row",
+          weekTouchesCurrentMonth ? "" : "muted",
+          weekStartISO === currentWeekStartISO ? "current" : ""
         ].filter(Boolean).join(" ");
 
         return `
-          <div class="${dayClasses}">
-            <div class="calendar-day-number">${date.getDate()}</div>
+          <div class="${rowClasses}">
+            <div class="calendar-week-label">
+              <div class="calendar-week-number">Uke ${getISOWeek(weekStart)}</div>
+              <div class="calendar-week-dates">${formatDate(weekStartISO)} - ${formatDate(toISO(weekEnd))}</div>
+            </div>
             <div class="calendar-items">
-              ${visibleTasks.map(task => {
+              ${visibleTasks.length ? visibleTasks.map(task => {
                 const category = getCategory(task.categoryId);
-                const completed = isCompletedThisWeek(task.id) && iso === getWeekStartISO();
+                const completed = isCompletedThisWeek(task.id) && weekStartISO === currentWeekStartISO;
                 return `<div class="calendar-item ${completed ? "done" : ""}" style="background:${category.color}33">${escapeHtml(task.title)}</div>`;
-              }).join("")}
+              }).join("") : `<div class="calendar-empty-week">Ingen planlagte oppgaver</div>`}
               ${hiddenCount > 0 ? `<div class="calendar-more">+${hiddenCount} flere</div>` : ""}
             </div>
           </div>`;
