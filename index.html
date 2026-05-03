@@ -377,6 +377,115 @@
       box-shadow: 0 0 0 3px var(--black);
     }
 
+    .calendar-shell {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .calendar-nav {
+      display: grid;
+      grid-template-columns: 54px 1fr 54px;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .calendar-arrow {
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      padding: 0;
+      background: var(--warm-gray-1);
+      color: var(--black);
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .calendar-month {
+      min-height: 54px;
+      border: 1px solid var(--warm-gray-2);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      text-align: center;
+    }
+
+    .calendar-weekdays,
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .calendar-weekday {
+      color: var(--warm-gray-3);
+      font-weight: 900;
+      text-align: center;
+      padding: 0 0 8px;
+    }
+
+    .calendar-day {
+      min-height: 116px;
+      border: 1px solid var(--warm-gray-2);
+      border-radius: 14px;
+      padding: 10px;
+      background: var(--white);
+      overflow: hidden;
+    }
+
+    .calendar-day.muted {
+      background: var(--warm-gray-1);
+      color: var(--warm-gray-3);
+      opacity: 0.64;
+    }
+
+    .calendar-day.today {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px #ff5a5f22;
+    }
+
+    .calendar-day-number {
+      font-size: 18px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    .calendar-items {
+      display: grid;
+      gap: 6px;
+    }
+
+    .calendar-item {
+      border-radius: 8px;
+      padding: 6px 7px;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.2;
+      color: var(--black);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .calendar-item.done {
+      opacity: 0.48;
+      text-decoration: line-through;
+    }
+
+    .calendar-more {
+      font-size: 12px;
+      color: var(--warm-gray-3);
+      font-weight: 800;
+    }
+
     .notice {
       background: var(--light-pink);
       border-radius: var(--radius);
@@ -398,6 +507,46 @@
 
       .summary-grid, .form-grid {
         grid-template-columns: 1fr;
+      }
+
+      .calendar-nav {
+        grid-template-columns: 44px 1fr 44px;
+        gap: 8px;
+      }
+
+      .calendar-arrow {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+      }
+
+      .calendar-month {
+        min-height: 44px;
+        font-size: 20px;
+      }
+
+      .calendar-weekdays,
+      .calendar-grid {
+        gap: 6px;
+      }
+
+      .calendar-weekday {
+        font-size: 13px;
+      }
+
+      .calendar-day {
+        min-height: 88px;
+        padding: 7px;
+        border-radius: 10px;
+      }
+
+      .calendar-day-number {
+        font-size: 15px;
+      }
+
+      .calendar-item {
+        font-size: 10px;
+        padding: 5px;
       }
 
       .task-card {
@@ -431,6 +580,7 @@
       <button class="tab-button active" data-tab="dashboard">Dashboard</button>
       <button class="tab-button" data-tab="tasks">Oppgaver</button>
       <button class="tab-button" data-tab="categories">Kategorier</button>
+      <button class="tab-button" data-tab="calendar">Kalender</button>
       <button class="tab-button" data-tab="history">Historikk</button>
     </nav>
 
@@ -542,6 +692,32 @@
         <div class="category-list" id="categoryList"></div>
       </section>
 
+      <section id="calendar" class="panel">
+        <div class="calendar-shell">
+          <div class="toolbar">
+            <h2 class="section-title" style="margin:0;">Kalender</h2>
+            <button class="btn-light" type="button" onclick="goToCurrentMonth()">Denne måneden</button>
+          </div>
+
+          <div class="calendar-nav">
+            <button class="calendar-arrow" type="button" onclick="changeCalendarMonth(-1)" aria-label="Forrige måned">‹</button>
+            <div class="calendar-month" id="calendarMonthTitle"></div>
+            <button class="calendar-arrow" type="button" onclick="changeCalendarMonth(1)" aria-label="Neste måned">›</button>
+          </div>
+
+          <div class="calendar-weekdays" aria-hidden="true">
+            <div class="calendar-weekday">Man</div>
+            <div class="calendar-weekday">Tir</div>
+            <div class="calendar-weekday">Ons</div>
+            <div class="calendar-weekday">Tor</div>
+            <div class="calendar-weekday">Fre</div>
+            <div class="calendar-weekday">Lør</div>
+            <div class="calendar-weekday">Søn</div>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+      </section>
+
       <section id="history" class="panel">
         <div class="toolbar">
           <h2 class="section-title" style="margin:0;">Historikk</h2>
@@ -612,6 +788,7 @@
       completions: []
     };
 
+    let calendarMonthDate = new Date();
     let hasRenderedInitial = false;
 
     function todayISO() {
@@ -627,6 +804,14 @@
       const clone = new Date(date);
       clone.setMinutes(clone.getMinutes() - clone.getTimezoneOffset());
       return clone.toISOString().slice(0, 10);
+    }
+
+    function startOfMonth(date = new Date()) {
+      return new Date(date.getFullYear(), date.getMonth(), 1);
+    }
+
+    function addMonths(date, amount) {
+      return new Date(date.getFullYear(), date.getMonth() + amount, 1);
     }
 
     function startOfISOWeek(date = new Date()) {
@@ -662,6 +847,12 @@
       const start = toDate(startISO);
       const end = toDate(endISO);
       return (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth();
+    }
+
+    function addDays(date, days) {
+      const clone = new Date(date);
+      clone.setDate(clone.getDate() + days);
+      return clone;
     }
 
     function shouldAppearThisWeek(task) {
@@ -742,6 +933,7 @@
       renderTasks();
       renderCategories();
       renderCategoryOptions();
+      renderCalendar();
       renderHistory();
     }
 
@@ -981,6 +1173,94 @@
       }
     }
 
+    function changeCalendarMonth(direction) {
+      calendarMonthDate = addMonths(calendarMonthDate, direction);
+      renderCalendar();
+    }
+
+    function goToCurrentMonth() {
+      calendarMonthDate = startOfMonth(new Date());
+      renderCalendar();
+    }
+
+    function isTaskScheduledForWeek(task, weekStartISO) {
+      if (!task.isActive || !task.startDate) return false;
+
+      const taskStartWeekISO = getWeekStartISO(toDate(task.startDate));
+      if (toDate(weekStartISO) < toDate(taskStartWeekISO)) return false;
+
+      const weekDistance = weeksBetween(taskStartWeekISO, weekStartISO);
+
+      if (task.frequencyType === "weekly") return true;
+      if (task.frequencyType === "biweekly") return weekDistance % 2 === 0;
+      if (task.frequencyType === "customWeeks") {
+        const interval = Math.max(1, Number(task.customIntervalWeeks || 1));
+        return weekDistance % interval === 0;
+      }
+
+      if (task.frequencyType === "monthly" || task.frequencyType === "semiannual") {
+        const monthDistance = monthsBetween(task.startDate, weekStartISO);
+        const interval = task.frequencyType === "semiannual" ? 6 : 1;
+        if (monthDistance < 0 || monthDistance % interval !== 0) return false;
+
+        const occurrence = new Date(toDate(task.startDate));
+        occurrence.setMonth(occurrence.getMonth() + monthDistance);
+        return getWeekStartISO(occurrence) === weekStartISO;
+      }
+
+      return false;
+    }
+
+    function getCalendarTasksForDate(date) {
+      const day = date.getDay() || 7;
+      if (day !== 1) return [];
+
+      const weekStartISO = toISO(date);
+      return state.tasks
+        .filter(task => isTaskScheduledForWeek(task, weekStartISO))
+        .sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    function renderCalendar() {
+      const title = document.getElementById("calendarMonthTitle");
+      const grid = document.getElementById("calendarGrid");
+      if (!title || !grid) return;
+
+      const monthStart = startOfMonth(calendarMonthDate);
+      const monthLabel = new Intl.DateTimeFormat("no-NO", { month: "long", year: "numeric" }).format(monthStart);
+      title.textContent = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
+      const firstGridDate = startOfISOWeek(monthStart);
+      const today = todayISO();
+      const days = Array.from({ length: 42 }, (_, index) => addDays(firstGridDate, index));
+
+      grid.innerHTML = days.map(date => {
+        const iso = toISO(date);
+        const tasks = getCalendarTasksForDate(date);
+        const visibleTasks = tasks.slice(0, 3);
+        const hiddenCount = tasks.length - visibleTasks.length;
+        const isCurrentMonth = date.getMonth() === monthStart.getMonth();
+        const dayClasses = [
+          "calendar-day",
+          isCurrentMonth ? "" : "muted",
+          iso === today ? "today" : ""
+        ].filter(Boolean).join(" ");
+
+        return `
+          <div class="${dayClasses}">
+            <div class="calendar-day-number">${date.getDate()}</div>
+            <div class="calendar-items">
+              ${visibleTasks.map(task => {
+                const category = getCategory(task.categoryId);
+                const completed = isCompletedThisWeek(task.id) && iso === getWeekStartISO();
+                return `<div class="calendar-item ${completed ? "done" : ""}" style="background:${category.color}33">${escapeHtml(task.title)}</div>`;
+              }).join("")}
+              ${hiddenCount > 0 ? `<div class="calendar-more">+${hiddenCount} flere</div>` : ""}
+            </div>
+          </div>`;
+      }).join("");
+    }
+
     async function deleteCategory(categoryId) {
       const hasTasks = state.tasks.some(t => t.categoryId === categoryId && t.isActive);
       if (hasTasks) {
@@ -1107,6 +1387,8 @@
     window.deleteCategory = deleteCategory;
     window.undoCompletion = undoCompletion;
     window.clearHistory = clearHistory;
+    window.changeCalendarMonth = changeCalendarMonth;
+    window.goToCurrentMonth = goToCurrentMonth;
 
     init().catch(error => {
       console.error(error);
