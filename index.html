@@ -502,6 +502,112 @@
       align-self: center;
     }
 
+    .dashboard-dinner {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 22px;
+    }
+
+    .dashboard-dinner h2 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      letter-spacing: -0.3px;
+    }
+
+    .dinner-title {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+    }
+
+    .dinner-link {
+      color: var(--red);
+      font-weight: 900;
+      text-decoration: none;
+    }
+
+    .dinner-link:hover {
+      text-decoration: underline;
+    }
+
+    .dinner-week-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .dinner-day-card {
+      display: grid;
+      grid-template-columns: minmax(92px, 128px) 1fr;
+      gap: 12px;
+      align-items: stretch;
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      border: 1px solid transparent;
+    }
+
+    .dinner-day-card.today {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px #ff5a5f22, var(--shadow);
+    }
+
+    .dinner-day-label {
+      border-radius: 14px;
+      background: var(--warm-gray-1);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      font-weight: 900;
+    }
+
+    .dinner-date {
+      color: var(--warm-gray-3);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .dinner-meals {
+      display: grid;
+      gap: 10px;
+      align-content: center;
+    }
+
+    .dinner-meal {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      background: var(--light-pink);
+      border-radius: 12px;
+      padding: 11px 12px;
+    }
+
+    .dinner-meal-main {
+      display: grid;
+      gap: 3px;
+    }
+
+    .dinner-meal-title {
+      font-weight: 900;
+    }
+
+    .dinner-note {
+      color: #4f4945;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .dinner-empty {
+      color: var(--warm-gray-3);
+      font-weight: 800;
+      align-self: center;
+    }
+
     .notice {
       background: var(--light-pink);
       border-radius: var(--radius);
@@ -573,6 +679,16 @@
         max-width: 100%;
       }
 
+      .dashboard-dinner,
+      .dinner-day-card {
+        grid-template-columns: 1fr;
+      }
+
+      .dinner-meal {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
       .task-card {
         grid-template-columns: auto 1fr;
       }
@@ -604,6 +720,7 @@
       <button class="tab-button active" data-tab="dashboard">Dashboard</button>
       <button class="tab-button" data-tab="tasks">Oppgaver</button>
       <button class="tab-button" data-tab="categories">Kategorier</button>
+      <button class="tab-button" data-tab="dinners">Middag</button>
       <button class="tab-button" data-tab="calendar">Kalender</button>
       <button class="tab-button" data-tab="history">Historikk</button>
     </nav>
@@ -616,6 +733,15 @@
           <div class="summary-card"><strong id="totalDue">0</strong><span>oppgaver denne uken</span></div>
           <div class="summary-card"><strong id="totalDone">0</strong><span>utført</span></div>
           <div class="summary-card"><strong id="totalRemaining">0</strong><span>gjenstår</span></div>
+        </div>
+
+        <div class="card dashboard-dinner">
+          <div>
+            <h2>Dagens middag</h2>
+            <div class="dinner-title" id="todayDinnerTitle">Ikke planlagt ennå</div>
+            <div class="subtitle" id="todayDinnerMeta">Legg inn middag fra Middag-fanen.</div>
+          </div>
+          <button class="btn-primary" onclick="switchTab('dinners')">Planlegg middag</button>
         </div>
 
         <div class="toolbar">
@@ -716,6 +842,61 @@
         <div class="category-list" id="categoryList"></div>
       </section>
 
+      <section id="dinners" class="panel">
+        <div class="card" style="margin-bottom: 18px;">
+          <h2 class="section-title" id="dinnerFormTitle">Legg til middag</h2>
+          <form id="dinnerForm">
+            <input type="hidden" id="editingDinnerId" />
+            <div class="form-grid">
+              <div>
+                <label for="dinnerTitle">Middag</label>
+                <input id="dinnerTitle" required placeholder="F.eks. Spaghetti bolognese" />
+              </div>
+              <div>
+                <label for="dinnerStartDate">Dato</label>
+                <input id="dinnerStartDate" type="date" required />
+              </div>
+              <div class="full">
+                <label for="dinnerRecipeUrl">Oppskriftslink</label>
+                <input id="dinnerRecipeUrl" inputmode="url" placeholder="https://..." />
+              </div>
+              <div>
+                <label for="dinnerRepeat">Gjentakelse</label>
+                <select id="dinnerRepeat" onchange="toggleDinnerRepeatInterval()">
+                  <option value="none">Ingen gjentakelse</option>
+                  <option value="weekly">Hver uke</option>
+                  <option value="everyNWeeks">Hver X. uke</option>
+                </select>
+              </div>
+              <div id="dinnerRepeatIntervalWrap" style="display:none;">
+                <label for="dinnerRepeatInterval">Antall uker mellom hver gang</label>
+                <input id="dinnerRepeatInterval" type="number" min="2" value="2" />
+              </div>
+              <div class="full">
+                <label for="dinnerNote">Notat</label>
+                <textarea id="dinnerNote" placeholder="F.eks. bruk rester eller husk å handle inn"></textarea>
+              </div>
+              <div class="full actions" style="justify-content:flex-start; margin-top: 6px;">
+                <button class="btn-primary" type="submit">Lagre middag</button>
+                <button class="btn-light" type="button" onclick="resetDinnerForm()">Nullstill</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="toolbar">
+          <button class="btn-light" type="button" onclick="changeDinnerWeek(-1)">Forrige uke</button>
+          <div>
+            <div class="week-title" id="dinnerWeekTitle"></div>
+            <div class="subtitle">Planlagte middager, oppskrifter og gjentakelser.</div>
+          </div>
+          <button class="btn-light" type="button" onclick="changeDinnerWeek(1)">Neste uke</button>
+          <button class="btn-secondary" type="button" onclick="goToCurrentDinnerWeek()">Denne uken</button>
+        </div>
+
+        <div id="dinnerWeekList" class="dinner-week-list"></div>
+      </section>
+
       <section id="calendar" class="panel">
         <div class="calendar-shell">
           <div class="toolbar">
@@ -795,15 +976,18 @@
     const categoriesRef = collection(db, householdPath, "categories");
     const tasksRef = collection(db, householdPath, "tasks");
     const completionsRef = collection(db, householdPath, "completions");
+    const dinnersRef = collection(db, householdPath, "dinners");
 
     let state = {
       users: ["Espen", "Line"],
       categories: [],
       tasks: [],
-      completions: []
+      completions: [],
+      dinners: []
     };
 
     let calendarMonthDate = new Date();
+    let dinnerWeekDate = new Date();
     let hasRenderedInitial = false;
 
     function todayISO() {
@@ -948,6 +1132,7 @@
       renderTasks();
       renderCategories();
       renderCategoryOptions();
+      renderDinnerPlanner();
       renderCalendar();
       renderHistory();
     }
@@ -978,6 +1163,7 @@
       document.getElementById("totalDue").textContent = dueTasks.length;
       document.getElementById("totalDone").textContent = done.length;
       document.getElementById("totalRemaining").textContent = remaining;
+      renderTodayDinner();
 
       const container = document.getElementById("dashboardTasks");
       const visibleTasks = dueTasks.filter(task => !isCompletedThisWeek(task.id));
@@ -1291,6 +1477,214 @@
       await updateDoc(doc(db, "households", HOUSEHOLD_ID, "categories", categoryId), { isActive: false });
     }
 
+    function weekdayLabel(date) {
+      return new Intl.DateTimeFormat("no-NO", { weekday: "long" }).format(date)
+        .replace(/^\w/, letter => letter.toUpperCase());
+    }
+
+    function isDinnerScheduledForDate(dinner, date) {
+      if (!dinner.isActive || !dinner.startDate) return false;
+
+      const dateISO = toISO(date);
+      const startDate = toDate(dinner.startDate);
+      if (date < startDate && dateISO !== dinner.startDate) return false;
+
+      const weekday = date.getDay() || 7;
+      if (weekday !== Number(dinner.weekday)) return false;
+
+      if (dinner.repeatType === "none") return dateISO === dinner.startDate;
+
+      const startWeekISO = getWeekStartISO(startDate);
+      const currentWeekISO = getWeekStartISO(date);
+      const distance = weeksBetween(startWeekISO, currentWeekISO);
+      if (distance < 0) return false;
+
+      if (dinner.repeatType === "weekly") return true;
+      if (dinner.repeatType === "everyNWeeks") {
+        const interval = Math.max(1, Number(dinner.repeatIntervalWeeks || 1));
+        return distance % interval === 0;
+      }
+
+      return false;
+    }
+
+    function getDinnersForDate(date) {
+      return state.dinners
+        .filter(dinner => isDinnerScheduledForDate(dinner, date))
+        .sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    function repeatDinnerLabel(dinner) {
+      if (dinner.repeatType === "weekly") return "Gjentas hver uke";
+      if (dinner.repeatType === "everyNWeeks") return `Gjentas hver ${dinner.repeatIntervalWeeks || "?"}. uke`;
+      return "Ingen gjentakelse";
+    }
+
+    function normalizeUrl(value) {
+      const url = value.trim();
+      if (!url) return "";
+      if (/^https?:\/\//i.test(url)) return url;
+      return `https://${url}`;
+    }
+
+    function isValidRecipeUrl(url) {
+      if (!url) return true;
+      try {
+        const parsed = new URL(url);
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+      } catch {
+        return false;
+      }
+    }
+
+    function renderTodayDinner() {
+      const title = document.getElementById("todayDinnerTitle");
+      const meta = document.getElementById("todayDinnerMeta");
+      if (!title || !meta) return;
+
+      const dinners = getDinnersForDate(new Date());
+      if (dinners.length === 0) {
+        title.textContent = "Ikke planlagt ennå";
+        meta.textContent = "Legg inn middag fra Middag-fanen.";
+        return;
+      }
+
+      title.textContent = dinners.map(dinner => dinner.title).join(" + ");
+      const firstRecipe = dinners.find(dinner => dinner.recipeUrl);
+      meta.innerHTML = firstRecipe
+        ? `<a class="dinner-link" href="${escapeHtml(firstRecipe.recipeUrl)}" target="_blank" rel="noopener">Åpne oppskrift</a>`
+        : "Ingen oppskriftslink lagt inn.";
+    }
+
+    function changeDinnerWeek(direction) {
+      dinnerWeekDate = addDays(dinnerWeekDate, direction * 7);
+      renderDinnerPlanner();
+    }
+
+    function goToCurrentDinnerWeek() {
+      dinnerWeekDate = new Date();
+      renderDinnerPlanner();
+    }
+
+    function renderDinnerPlanner() {
+      const title = document.getElementById("dinnerWeekTitle");
+      const list = document.getElementById("dinnerWeekList");
+      if (!title || !list) return;
+
+      const weekStart = startOfISOWeek(dinnerWeekDate);
+      const weekEnd = endOfISOWeek(dinnerWeekDate);
+      title.textContent = `Uke ${getISOWeek(weekStart)}: ${formatDate(toISO(weekStart))} - ${formatDate(toISO(weekEnd))}`;
+
+      const today = todayISO();
+      const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+
+      list.innerHTML = days.map(date => {
+        const iso = toISO(date);
+        const dinners = getDinnersForDate(date);
+
+        return `
+          <article class="dinner-day-card ${iso === today ? "today" : ""}">
+            <div class="dinner-day-label">
+              <span>${weekdayLabel(date)}</span>
+              <span class="dinner-date">${formatDate(iso)}</span>
+            </div>
+            <div class="dinner-meals">
+              ${dinners.length ? dinners.map(dinner => renderDinnerMeal(dinner)).join("") : `<div class="dinner-empty">Ikke planlagt</div>`}
+            </div>
+          </article>`;
+      }).join("");
+    }
+
+    function renderDinnerMeal(dinner) {
+      return `
+        <div class="dinner-meal">
+          <div class="dinner-meal-main">
+            <div class="dinner-meal-title">${escapeHtml(dinner.title)}</div>
+            <div class="dinner-note">${escapeHtml(repeatDinnerLabel(dinner))}${dinner.note ? ` · ${escapeHtml(dinner.note)}` : ""}</div>
+            ${dinner.recipeUrl ? `<a class="dinner-link" href="${escapeHtml(dinner.recipeUrl)}" target="_blank" rel="noopener">Åpne oppskrift</a>` : ""}
+          </div>
+          <div class="actions">
+            <button class="btn-light" type="button" onclick="editDinner('${dinner.id}')">Rediger</button>
+            <button class="btn-danger" type="button" onclick="deactivateDinner('${dinner.id}')">Fjern</button>
+          </div>
+        </div>`;
+    }
+
+    function toggleDinnerRepeatInterval() {
+      const repeatType = document.getElementById("dinnerRepeat").value;
+      document.getElementById("dinnerRepeatIntervalWrap").style.display = repeatType === "everyNWeeks" ? "block" : "none";
+    }
+
+    function resetDinnerForm() {
+      document.getElementById("dinnerForm").reset();
+      document.getElementById("editingDinnerId").value = "";
+      document.getElementById("dinnerStartDate").value = todayISO();
+      document.getElementById("dinnerFormTitle").textContent = "Legg til middag";
+      toggleDinnerRepeatInterval();
+    }
+
+    async function handleDinnerSubmit(event) {
+      event.preventDefault();
+
+      const editingId = document.getElementById("editingDinnerId").value;
+      const startDate = document.getElementById("dinnerStartDate").value;
+      const recipeUrl = normalizeUrl(document.getElementById("dinnerRecipeUrl").value);
+      if (!isValidRecipeUrl(recipeUrl)) {
+        alert("Oppskriftslenken må være en gyldig http- eller https-lenke.");
+        return;
+      }
+
+      const repeatType = document.getElementById("dinnerRepeat").value;
+      const dinnerData = {
+        title: document.getElementById("dinnerTitle").value.trim(),
+        recipeUrl,
+        note: document.getElementById("dinnerNote").value.trim(),
+        startDate,
+        weekday: toDate(startDate).getDay() || 7,
+        repeatType,
+        repeatIntervalWeeks: repeatType === "everyNWeeks" ? Number(document.getElementById("dinnerRepeatInterval").value || 2) : null,
+        isActive: true,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (editingId) {
+        await updateDoc(doc(db, "households", HOUSEHOLD_ID, "dinners", editingId), dinnerData);
+      } else {
+        await addDoc(dinnersRef, {
+          ...dinnerData,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      dinnerWeekDate = toDate(startDate);
+      resetDinnerForm();
+      switchTab("dinners");
+    }
+
+    function editDinner(dinnerId) {
+      const dinner = state.dinners.find(item => item.id === dinnerId);
+      if (!dinner) return;
+
+      document.getElementById("editingDinnerId").value = dinner.id;
+      document.getElementById("dinnerTitle").value = dinner.title;
+      document.getElementById("dinnerRecipeUrl").value = dinner.recipeUrl || "";
+      document.getElementById("dinnerStartDate").value = dinner.startDate;
+      document.getElementById("dinnerRepeat").value = dinner.repeatType || "none";
+      document.getElementById("dinnerRepeatInterval").value = dinner.repeatIntervalWeeks || 2;
+      document.getElementById("dinnerNote").value = dinner.note || "";
+      document.getElementById("dinnerFormTitle").textContent = "Rediger middag";
+      toggleDinnerRepeatInterval();
+      switchTab("dinners");
+    }
+
+    async function deactivateDinner(dinnerId) {
+      if (!confirm("Vil du fjerne denne middagen fra planen?")) return;
+      await updateDoc(doc(db, "households", HOUSEHOLD_ID, "dinners", dinnerId), {
+        isActive: false,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
     function renderHistory() {
       const table = document.getElementById("historyTable");
       if (state.completions.length === 0) {
@@ -1370,6 +1764,11 @@
         state.completions = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         renderAll();
       });
+
+      onSnapshot(query(dinnersRef), snapshot => {
+        state.dinners = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderAll();
+      });
     }
 
     async function init() {
@@ -1379,7 +1778,9 @@
 
       document.getElementById("taskForm").addEventListener("submit", handleTaskSubmit);
       document.getElementById("categoryForm").addEventListener("submit", handleCategorySubmit);
+      document.getElementById("dinnerForm").addEventListener("submit", handleDinnerSubmit);
       document.getElementById("taskFrequency").addEventListener("change", toggleCustomInterval);
+      document.getElementById("dinnerRepeat").addEventListener("change", toggleDinnerRepeatInterval);
       document.querySelectorAll(".color-swatch").forEach(swatch => {
         swatch.addEventListener("click", () => selectCategoryColor(swatch.dataset.color));
       });
@@ -1392,6 +1793,7 @@
       if (savedUser) document.getElementById("currentUser").value = savedUser;
 
       resetTaskForm();
+      resetDinnerForm();
       renderAll();
       await signInAnonymously(auth);
       await seedDefaultCategoriesIfNeeded();
@@ -1410,6 +1812,12 @@
     window.clearHistory = clearHistory;
     window.changeCalendarMonth = changeCalendarMonth;
     window.goToCurrentMonth = goToCurrentMonth;
+    window.changeDinnerWeek = changeDinnerWeek;
+    window.goToCurrentDinnerWeek = goToCurrentDinnerWeek;
+    window.toggleDinnerRepeatInterval = toggleDinnerRepeatInterval;
+    window.resetDinnerForm = resetDinnerForm;
+    window.editDinner = editDinner;
+    window.deactivateDinner = deactivateDinner;
 
     init().catch(error => {
       console.error(error);
