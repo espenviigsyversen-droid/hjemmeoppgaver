@@ -152,6 +152,37 @@
       color: var(--white);
     }
 
+    .bottom-nav {
+      display: none;
+    }
+
+    .bottom-tab {
+      border-radius: 14px;
+      padding: 8px 6px;
+      background: transparent;
+      color: var(--warm-gray-3);
+      display: grid;
+      gap: 3px;
+      justify-items: center;
+      font-size: 11px;
+      font-weight: 900;
+      min-width: 0;
+    }
+
+    .bottom-tab:hover {
+      transform: none;
+    }
+
+    .bottom-tab-icon {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .bottom-tab.active {
+      background: var(--black);
+      color: var(--white);
+    }
+
     .panel {
       display: none;
     }
@@ -519,13 +550,42 @@
     }
 
     @media (max-width: 760px) {
+      body {
+        padding-bottom: calc(88px + env(safe-area-inset-bottom));
+      }
+
       .app {
-        padding: 16px;
+        padding: 16px 16px 8px;
       }
 
       header {
         align-items: flex-start;
         flex-direction: column;
+        margin-bottom: 16px;
+      }
+
+      nav {
+        display: none;
+      }
+
+      .bottom-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 4px;
+        padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+        background: rgba(255, 255, 255, 0.94);
+        border-top: 1px solid var(--warm-gray-2);
+        box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.08);
+        backdrop-filter: blur(14px);
+      }
+
+      .brand h1 {
+        font-size: 32px;
       }
 
       .summary-grid, .form-grid {
@@ -613,6 +673,29 @@
       <button class="tab-button" data-tab="categories">Kategorier</button>
       <button class="tab-button" data-tab="calendar">Kalender</button>
       <button class="tab-button" data-tab="history">Historikk</button>
+    </nav>
+
+    <nav class="bottom-nav" aria-label="Mobilnavigasjon">
+      <button class="bottom-tab active" data-tab="dashboard" type="button">
+        <span class="bottom-tab-icon" aria-hidden="true">⌂</span>
+        <span>Dash</span>
+      </button>
+      <button class="bottom-tab" data-tab="tasks" type="button">
+        <span class="bottom-tab-icon" aria-hidden="true">✓</span>
+        <span>Oppgaver</span>
+      </button>
+      <button class="bottom-tab" data-tab="categories" type="button">
+        <span class="bottom-tab-icon" aria-hidden="true">●</span>
+        <span>Kategorier</span>
+      </button>
+      <button class="bottom-tab" data-tab="calendar" type="button">
+        <span class="bottom-tab-icon" aria-hidden="true">□</span>
+        <span>Kalender</span>
+      </button>
+      <button class="bottom-tab" data-tab="history" type="button">
+        <span class="bottom-tab-icon" aria-hidden="true">↺</span>
+        <span>Historikk</span>
+      </button>
     </nav>
 
     <main>
@@ -915,6 +998,10 @@
       return state.completions.some(c => c.taskId === taskId && c.weekStartDate === weekStart);
     }
 
+    function isCompletedInWeek(taskId, weekStartISO) {
+      return state.completions.some(c => c.taskId === taskId && c.weekStartDate === weekStartISO);
+    }
+
     function getCompletionThisWeek(taskId) {
       const weekStart = getWeekStartISO();
       return state.completions.find(c => c.taskId === taskId && c.weekStartDate === weekStart);
@@ -941,7 +1028,7 @@
     }
 
     function switchTab(tabId) {
-      document.querySelectorAll(".tab-button").forEach(btn => {
+      document.querySelectorAll(".tab-button, .bottom-tab").forEach(btn => {
         btn.classList.toggle("active", btn.dataset.tab === tabId);
       });
       document.querySelectorAll(".panel").forEach(panel => {
@@ -1280,7 +1367,7 @@
             <div class="calendar-items">
               ${visibleTasks.length ? visibleTasks.map(task => {
                 const category = getCategory(task.categoryId);
-                const completed = isCompletedThisWeek(task.id) && weekStartISO === currentWeekStartISO;
+                const completed = isCompletedInWeek(task.id, weekStartISO);
                 return `<div class="calendar-item ${completed ? "done" : ""}" style="background:${category.color}33">${escapeHtml(task.title)}</div>`;
               }).join("") : `<div class="calendar-empty-week">Ingen planlagte oppgaver</div>`}
               ${hiddenCount > 0 ? `<div class="calendar-more">+${hiddenCount} flere</div>` : ""}
@@ -1380,7 +1467,7 @@
     }
 
     async function init() {
-      document.querySelectorAll(".tab-button").forEach(btn => {
+      document.querySelectorAll(".tab-button, .bottom-tab").forEach(btn => {
         btn.addEventListener("click", () => switchTab(btn.dataset.tab));
       });
 
