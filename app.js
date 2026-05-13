@@ -45,6 +45,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 
     let calendarMonthDate = new Date();
     let hasRenderedInitial = false;
+    let selectedTaskId = null;
 
     function todayISO() {
       return new Date().toISOString().slice(0, 10);
@@ -195,6 +196,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       return state.completions.find(c => c.taskId === taskId && c.weekStartDate === weekStart);
     }
 
+    function getTaskCompletions(taskId) {
+      return state.completions
+        .filter(c => c.taskId === taskId)
+        .sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+    }
+
     function frequencyLabel(task) {
       const map = {
         weekly: "Ukentlig",
@@ -216,6 +223,40 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       return `${formatMonthDay(task.seasonStartMonthDay)}–${formatMonthDay(task.seasonEndMonthDay)}`;
     }
 
+    function taskStatusLabel(task) {
+      if (!task.isActive) return "Deaktivert";
+      if (!isTaskInSeasonForWeek(task, getWeekStartISO())) return "Sesongpause";
+      if (isCompletedThisWeek(task.id)) return "Utført denne uken";
+      if (shouldAppearThisWeek(task)) return "Klar denne uken";
+      return "Planlagt";
+    }
+
+    function nextTaskOccurrenceLabel(task) {
+      if (!task.isActive) return "Ikke aktiv";
+      if (shouldAppearThisWeek(task) && !isCompletedThisWeek(task.id)) return "Denne uken";
+
+      const latestCompletion = getLatestCompletion(task.id);
+      const start = startOfISOWeek(new Date());
+
+      for (let offset = 0; offset < 104; offset += 1) {
+        const weekStart = addDays(start, offset * 7);
+        const weekStartISO = toISO(weekStart);
+
+        if (!isTaskInSeasonForWeek(task, weekStartISO)) continue;
+        if (toDate(task.startDate) > endOfISOWeek(weekStart)) continue;
+
+        const isDue = latestCompletion
+          ? latestCompletion.weekStartDate !== weekStartISO && isFrequencyDue(task, latestCompletion.completedAt.slice(0, 10), weekStartISO)
+          : isTaskScheduledForWeek(task, weekStartISO);
+
+        if (isDue) {
+          return `Uke ${getISOWeek(weekStart)}: ${formatDate(weekStartISO)}`;
+        }
+      }
+
+      return "Ikke funnet i plan";
+    }
+
     function getCategory(id) {
       return state.categories.find(c => c.id === id) || { name: "Ukjent", color: "#e8e2dc" };
     }
@@ -223,7 +264,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
     function switchTab(tabId) {
       document.querySelectorAll(".tab-button, .bottom-tab").forEach(btn => {
         const isSetupChild = ["categories", "task-editor"].includes(tabId) && btn.dataset.tab === "setup";
-        btn.classList.toggle("active", btn.dataset.tab === tabId || isSetupChild);
+        const isTasksChild = tabId === "task-detail" && btn.dataset.tab === "tasks";
+        btn.classList.toggle("active", btn.dataset.tab === tabId || isSetupChild || isTasksChild);
       });
       document.querySelectorAll(".panel").forEach(panel => {
         panel.classList.toggle("active", panel.id === tabId);
@@ -243,6 +285,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       renderTasks();
       renderCalendar();
       renderHistory();
+      renderTaskDetail();
     }
 
     function renderWeekTitle() {
@@ -429,10 +472,114 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
             </div>
           </div>
           <div class="actions">
+            <button class="btn-light" onclick="openTaskDetail('${task.id}')">Detaljer</button>
             ${!options.dashboard ? `<button class="btn-light" onclick="editTask('${task.id}')">Rediger</button>` : ""}
             ${!options.dashboard ? `<button class="btn-danger" onclick="deactivateTask('${task.id}')">Deaktiver</button>` : ""}
           </div>
         </article>`;
+    }
+
+    function openTaskDetail(taskId) {
+      selectedTaskId = taskId;
+      renderTaskDetail();
+      switchTab("task-detail");
+    }
+
+    function renderTaskDetail() {
+      const title = document.getElementById("taskDetailTitle");
+      const subtitle = document.getElementById("taskDetailSubtitle");
+      const container = document.getElementById("taskDetailContent");
+      if (!title || !subtitle || !container) return;
+
+      const task = state.tasks.find(t => t.id === selectedTaskId);
+      if (!task) {
+        title.textContent = "Oppgave";
+        subtitle.textContent = "Velg en oppgave for å se detaljer.";
+        container.innerHTML = `<div class="empty-state">Ingen oppgave valgt.</div>`;
+        return;
+      }
+
+      const category = getCategory(task.categoryId);
+      const completions = getTaskCompletions(task.id);
+      const latestCompletion = completions[0];
+      const completedThisWeek = isCompletedThisWeek(task.id);
+      const status = taskStatusLabel(task);
+
+      title.textContent = task.title;
+      subtitle.textContent = `${category.name} · ${status}`;
+
+      container.innerHTML = `
+        <div class="detail-layout">
+          <article class="detail-hero">
+            <div class="detail-title-row">
+              <span class="dot" style="background:${category.color}"></span>
+              <div>
+                <h3>${escapeHtml(task.title)}</h3>
+                <p>${escapeHtml(task.description || "Ingen beskrivelse")}</p>
+              </div>
+            </div>
+            <div class="meta-row">
+              <span class="pill" style="background:${category.color}33">${escapeHtml(category.name)}</span>
+              <span class="pill purple">${frequencyLabel(task)}</span>
+              <span class="pill pink">${assignedLabel(task)}</span>
+              <span class="pill">${seasonLabel(task)}</span>
+              <span class="pill ${completedThisWeek ? "pink" : "red"}">${status}</span>
+            </div>
+            <div class="detail-actions">
+              ${completedThisWeek
+                ? `<button class="btn-light" type="button" onclick="setTaskCompletionFromDetail('${task.id}', false)">Angre utført denne uken</button>`
+                : `<button class="btn-primary" type="button" onclick="setTaskCompletionFromDetail('${task.id}', true)">Marker utført</button>`}
+              <button class="btn-light" type="button" onclick="editTask('${task.id}')">Rediger</button>
+              <button class="btn-danger" type="button" onclick="deactivateTask('${task.id}')">Deaktiver</button>
+            </div>
+          </article>
+
+          <div class="detail-grid">
+            ${renderDetailMetric("Status", status)}
+            ${renderDetailMetric("Neste gang", nextTaskOccurrenceLabel(task))}
+            ${renderDetailMetric("Sist utført", latestCompletion ? `${formatDate(latestCompletion.completedAt.slice(0, 10))} av ${escapeHtml(latestCompletion.completedBy)}` : "Ingen historikk")}
+            ${renderDetailMetric("Første planlagte uke", formatDate(task.startDate))}
+          </div>
+
+          <article class="card">
+            <h3 class="detail-section-title">Historikk for oppgaven</h3>
+            ${renderTaskHistoryList(completions)}
+          </article>
+        </div>`;
+    }
+
+    function renderDetailMetric(label, value) {
+      return `
+        <div class="detail-metric">
+          <span>${escapeHtml(label)}</span>
+          <strong>${value}</strong>
+        </div>`;
+    }
+
+    function renderTaskHistoryList(completions) {
+      if (completions.length === 0) {
+        return `<div class="empty-inline">Ingen utførelser registrert ennå.</div>`;
+      }
+
+      return `
+        <div class="detail-history-list">
+          ${completions.slice(0, 8).map(item => `
+            <div class="detail-history-item">
+              <div>
+                <strong>${formatDate(item.completedAt.slice(0, 10))}</strong>
+                <span>${new Date(item.completedAt).toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
+              <div>Utført av ${escapeHtml(item.completedBy)}</div>
+              <button type="button" class="btn-light btn-small" onclick="undoCompletion('${item.id}')">Angre</button>
+            </div>
+          `).join("")}
+        </div>`;
+    }
+
+    async function setTaskCompletionFromDetail(taskId, checked) {
+      await toggleComplete(taskId, checked);
+      selectedTaskId = taskId;
+      renderAll();
     }
 
     async function toggleComplete(taskId, checked) {
@@ -875,6 +1022,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 
     window.switchTab = switchTab;
     window.openTaskForm = openTaskForm;
+    window.openTaskDetail = openTaskDetail;
+    window.setTaskCompletionFromDetail = setTaskCompletionFromDetail;
     window.toggleComplete = toggleComplete;
     window.editTask = editTask;
     window.deactivateTask = deactivateTask;
