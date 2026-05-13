@@ -1,0 +1,18 @@
+{
+  "name": "Husarbeid",
+  "short_name": "Husarbeid",
+  "description": "Delt husarbeidsapp for hjemmet",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f5f3",
+  "theme_color": "#FF5A5F",
+  "icons": [
+    {
+      "src": "Husarbeidikon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
