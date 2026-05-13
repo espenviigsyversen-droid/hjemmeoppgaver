@@ -110,11 +110,49 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       return clone;
     }
 
+    function monthDayFromISO(iso) {
+      return iso ? iso.slice(5) : "";
+    }
+
+    function dateInputValueFromMonthDay(monthDay) {
+      if (!monthDay) return "";
+      return `${new Date().getFullYear()}-${monthDay}`;
+    }
+
+    function formatMonthDay(monthDay) {
+      if (!monthDay) return "";
+      return new Intl.DateTimeFormat("no-NO", { day: "numeric", month: "short" })
+        .format(toDate(`${new Date().getFullYear()}-${monthDay}`));
+    }
+
+    function isMonthDayInRange(monthDay, startMonthDay, endMonthDay) {
+      if (!startMonthDay || !endMonthDay) return true;
+      if (startMonthDay <= endMonthDay) {
+        return monthDay >= startMonthDay && monthDay <= endMonthDay;
+      }
+      return monthDay >= startMonthDay || monthDay <= endMonthDay;
+    }
+
+    function isTaskInSeasonForWeek(task, weekStartISO) {
+      if (!task.seasonStartMonthDay || !task.seasonEndMonthDay) return true;
+
+      const weekStart = toDate(weekStartISO);
+      for (let dayOffset = 0; dayOffset < 7; dayOffset += 1) {
+        const day = addDays(weekStart, dayOffset);
+        const monthDay = toISO(day).slice(5);
+        if (isMonthDayInRange(monthDay, task.seasonStartMonthDay, task.seasonEndMonthDay)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     function shouldAppearThisWeek(task) {
       if (!task.isActive) return false;
 
       const currentWeekStart = getWeekStartISO();
       if (toDate(task.startDate) > endOfISOWeek()) return false;
+      if (!isTaskInSeasonForWeek(task, currentWeekStart)) return false;
 
       const latestCompletion = getLatestCompletion(task.id);
 
@@ -173,18 +211,28 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       return task.assignedTo.join(" + ");
     }
 
+    function seasonLabel(task) {
+      if (!task.seasonStartMonthDay || !task.seasonEndMonthDay) return "Hele året";
+      return `${formatMonthDay(task.seasonStartMonthDay)}–${formatMonthDay(task.seasonEndMonthDay)}`;
+    }
+
     function getCategory(id) {
       return state.categories.find(c => c.id === id) || { name: "Ukjent", color: "#e8e2dc" };
     }
 
     function switchTab(tabId) {
       document.querySelectorAll(".tab-button, .bottom-tab").forEach(btn => {
-        const isSetupChild = tabId === "categories" && btn.dataset.tab === "setup";
+        const isSetupChild = ["categories", "task-editor"].includes(tabId) && btn.dataset.tab === "setup";
         btn.classList.toggle("active", btn.dataset.tab === tabId || isSetupChild);
       });
       document.querySelectorAll(".panel").forEach(panel => {
         panel.classList.toggle("active", panel.id === tabId);
       });
+    }
+
+    function openTaskForm() {
+      resetTaskForm();
+      switchTab("task-editor");
     }
 
     function renderAll() {
@@ -364,6 +412,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       const completed = isCompletedThisWeek(task.id);
       const completion = getCompletionThisWeek(task.id);
       const doneText = completion ? `Utført av ${completion.completedBy}` : "Ikke utført";
+      const hasSeason = task.seasonStartMonthDay && task.seasonEndMonthDay;
 
       return `
         <article class="task-card ${completed ? "done" : ""}">
@@ -375,6 +424,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
               <span class="pill" style="background:${category.color}33">${escapeHtml(category.name)}</span>
               <span class="pill purple">${frequencyLabel(task)}</span>
               <span class="pill pink">${assignedLabel(task)}</span>
+              ${hasSeason ? `<span class="pill">${seasonLabel(task)}</span>` : ""}
               ${options.dashboard ? `<span class="pill ${completed ? "pink" : "red"}">${doneText}</span>` : ""}
             </div>
           </div>
@@ -418,6 +468,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       const editingId = document.getElementById("editingTaskId").value;
       const assignedValue = document.getElementById("taskAssignedTo").value;
       const assignedTo = assignedValue === "both" ? ["Espen", "Line"] : [assignedValue];
+      const isSeasonal = document.getElementById("taskSeasonMode").value === "seasonal";
 
       const taskData = {
         title: document.getElementById("taskTitle").value.trim(),
@@ -426,10 +477,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
         frequencyType: document.getElementById("taskFrequency").value,
         customIntervalWeeks: document.getElementById("taskFrequency").value === "customWeeks" ? Number(document.getElementById("customIntervalWeeks").value || 1) : null,
         startDate: document.getElementById("taskStartDate").value,
+        seasonStartMonthDay: isSeasonal ? monthDayFromISO(document.getElementById("taskSeasonStart").value) : null,
+        seasonEndMonthDay: isSeasonal ? monthDayFromISO(document.getElementById("taskSeasonEnd").value) : null,
         assignedTo,
         isActive: true,
         updatedAt: new Date().toISOString()
       };
+
+      if (isSeasonal && (!taskData.seasonStartMonthDay || !taskData.seasonEndMonthDay)) {
+        alert("Velg både fra-dato og til-dato for aktiv periode.");
+        return;
+      }
 
       if (editingId) {
         await updateDoc(doc(db, "households", HOUSEHOLD_ID, "tasks", editingId), taskData);
@@ -441,7 +499,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       }
 
       resetTaskForm();
-      switchTab("dashboard");
+      switchTab("tasks");
     }
 
     function editTask(taskId) {
@@ -456,9 +514,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       document.getElementById("taskFrequency").value = task.frequencyType;
       document.getElementById("customIntervalWeeks").value = task.customIntervalWeeks || 3;
       document.getElementById("taskAssignedTo").value = task.assignedTo?.length === 1 ? task.assignedTo[0] : "both";
+      document.getElementById("taskSeasonMode").value = task.seasonStartMonthDay && task.seasonEndMonthDay ? "seasonal" : "allYear";
+      document.getElementById("taskSeasonStart").value = dateInputValueFromMonthDay(task.seasonStartMonthDay);
+      document.getElementById("taskSeasonEnd").value = dateInputValueFromMonthDay(task.seasonEndMonthDay);
       document.getElementById("taskFormTitle").textContent = "Rediger oppgave";
       toggleCustomInterval();
-      switchTab("tasks");
+      toggleSeasonFields();
+      document.getElementById("cancelTaskEditBtn").style.display = "inline-flex";
+      switchTab("task-editor");
     }
 
     async function deactivateTask(taskId) {
@@ -473,13 +536,29 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       document.getElementById("taskForm").reset();
       document.getElementById("editingTaskId").value = "";
       document.getElementById("taskStartDate").value = todayISO();
+      document.getElementById("taskSeasonMode").value = "allYear";
+      document.getElementById("taskSeasonStart").value = "";
+      document.getElementById("taskSeasonEnd").value = "";
       document.getElementById("taskFormTitle").textContent = "Legg til oppgave";
+      document.getElementById("cancelTaskEditBtn").style.display = "none";
       toggleCustomInterval();
+      toggleSeasonFields();
+    }
+
+    function cancelTaskEdit() {
+      resetTaskForm();
+      switchTab("tasks");
     }
 
     function toggleCustomInterval() {
       const frequency = document.getElementById("taskFrequency").value;
       document.getElementById("customIntervalWrap").style.display = frequency === "customWeeks" ? "block" : "none";
+    }
+
+    function toggleSeasonFields() {
+      const isSeasonal = document.getElementById("taskSeasonMode").value === "seasonal";
+      document.getElementById("seasonStartWrap").style.display = isSeasonal ? "block" : "none";
+      document.getElementById("seasonEndWrap").style.display = isSeasonal ? "block" : "none";
     }
 
     function selectCategoryColor(color) {
@@ -562,6 +641,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 
     function isTaskScheduledForWeek(task, weekStartISO) {
       if (!task.isActive || !task.startDate) return false;
+      if (!isTaskInSeasonForWeek(task, weekStartISO)) return false;
 
       const taskStartWeekISO = getWeekStartISO(toDate(task.startDate));
       if (toDate(weekStartISO) < toDate(taskStartWeekISO)) return false;
@@ -771,6 +851,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       document.getElementById("taskForm").addEventListener("submit", handleTaskSubmit);
       document.getElementById("categoryForm").addEventListener("submit", handleCategorySubmit);
       document.getElementById("taskFrequency").addEventListener("change", toggleCustomInterval);
+      document.getElementById("taskSeasonMode").addEventListener("change", toggleSeasonFields);
       document.getElementById("taskViewMode").addEventListener("change", renderTasks);
       document.getElementById("taskCategoryFilter").addEventListener("change", renderTasks);
       document.querySelectorAll(".color-swatch").forEach(swatch => {
@@ -793,11 +874,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
     }
 
     window.switchTab = switchTab;
+    window.openTaskForm = openTaskForm;
     window.toggleComplete = toggleComplete;
     window.editTask = editTask;
     window.deactivateTask = deactivateTask;
     window.resetTaskForm = resetTaskForm;
+    window.cancelTaskEdit = cancelTaskEdit;
     window.toggleCustomInterval = toggleCustomInterval;
+    window.toggleSeasonFields = toggleSeasonFields;
     window.deleteCategory = deleteCategory;
     window.undoCompletion = undoCompletion;
     window.clearHistory = clearHistory;

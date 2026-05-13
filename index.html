@@ -70,7 +70,7 @@
             <div class="week-title" id="weekTitle"></div>
             <div class="subtitle">Ugjorte oppgaver blir automatisk med videre til neste uke.</div>
           </div>
-          <button class="btn-primary" onclick="switchTab('tasks')">+ Ny oppgave</button>
+          <button class="btn-primary" onclick="openTaskForm()">+ Ny oppgave</button>
         </div>
 
         <div class="summary-grid">
@@ -83,8 +83,40 @@
       </section>
 
       <section id="tasks" class="panel">
-        <div class="card" style="margin-bottom: 18px;">
-          <h2 class="section-title" id="taskFormTitle">Legg til oppgave</h2>
+        <div class="toolbar">
+          <h2 class="section-title" style="margin:0;">Alle aktive oppgaver</h2>
+          <button class="btn-light btn-small" type="button" onclick="openTaskForm()">+ Legg til oppgave</button>
+        </div>
+        <div class="task-controls" aria-label="Filtrer og sorter oppgaver">
+          <div>
+            <label for="taskViewMode">Visning</label>
+            <select id="taskViewMode">
+              <option value="category">Gruppert etter kategori</option>
+              <option value="alphabetical">Alfabetisk</option>
+              <option value="frequency">Gruppert etter frekvens</option>
+            </select>
+          </div>
+          <div>
+            <label for="taskCategoryFilter">Kategori</label>
+            <select id="taskCategoryFilter">
+              <option value="all">Alle kategorier</option>
+            </select>
+          </div>
+          <div class="task-list-meta" id="taskListMeta"></div>
+        </div>
+        <div id="allTasks" class="task-list"></div>
+      </section>
+
+      <section id="task-editor" class="panel">
+        <div class="toolbar">
+          <div>
+            <h2 class="section-title" id="taskFormTitle" style="margin:0;">Legg til oppgave</h2>
+            <div class="subtitle">Opprett eller endre oppgaver som skal gjentas i husarbeidsplanen.</div>
+          </div>
+          <button class="btn-light" type="button" onclick="switchTab('tasks')">Tilbake til Oppgaver</button>
+        </div>
+
+        <div class="card">
           <form id="taskForm">
             <input type="hidden" id="editingTaskId" />
             <div class="form-grid">
@@ -126,35 +158,29 @@
                   <option value="Line">Line</option>
                 </select>
               </div>
+              <div>
+                <label for="taskSeasonMode">Aktiv periode</label>
+                <select id="taskSeasonMode">
+                  <option value="allYear">Hele året</option>
+                  <option value="seasonal">Kun i en periode hvert år</option>
+                </select>
+              </div>
+              <div id="seasonStartWrap" style="display:none;">
+                <label for="taskSeasonStart">Fra dato</label>
+                <input id="taskSeasonStart" type="date" />
+              </div>
+              <div id="seasonEndWrap" style="display:none;">
+                <label for="taskSeasonEnd">Til dato</label>
+                <input id="taskSeasonEnd" type="date" />
+              </div>
               <div class="full actions" style="justify-content:flex-start; margin-top: 6px;">
                 <button class="btn-primary" type="submit">Lagre oppgave</button>
                 <button class="btn-light" type="button" onclick="resetTaskForm()">Nullstill</button>
+                <button id="cancelTaskEditBtn" class="btn-light" type="button" onclick="cancelTaskEdit()" style="display:none;">Avbryt redigering</button>
               </div>
             </div>
           </form>
         </div>
-
-        <div class="toolbar">
-          <h2 class="section-title" style="margin:0;">Alle aktive oppgaver</h2>
-        </div>
-        <div class="task-controls" aria-label="Filtrer og sorter oppgaver">
-          <div>
-            <label for="taskViewMode">Visning</label>
-            <select id="taskViewMode">
-              <option value="category">Gruppert etter kategori</option>
-              <option value="alphabetical">Alfabetisk</option>
-              <option value="frequency">Gruppert etter frekvens</option>
-            </select>
-          </div>
-          <div>
-            <label for="taskCategoryFilter">Kategori</label>
-            <select id="taskCategoryFilter">
-              <option value="all">Alle kategorier</option>
-            </select>
-          </div>
-          <div class="task-list-meta" id="taskListMeta"></div>
-        </div>
-        <div id="allTasks" class="task-list"></div>
       </section>
 
       <section id="setup" class="panel">
@@ -166,6 +192,12 @@
         </div>
 
         <div class="setup-grid">
+          <div class="setup-card">
+            <h3>Oppgaver</h3>
+            <p>Legg til nye husarbeidsoppgaver og bestem hvor ofte de skal gjentas.</p>
+            <button class="btn-primary" type="button" onclick="openTaskForm()">Legg til oppgave</button>
+          </div>
+
           <div class="setup-card">
             <h3>Metadata</h3>
             <p>Administrer valg som brukes på tvers av appen.</p>

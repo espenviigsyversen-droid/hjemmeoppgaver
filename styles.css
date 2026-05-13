@@ -119,6 +119,12 @@
       color: var(--white);
     }
 
+    .btn-small {
+      min-height: 38px;
+      padding: 9px 13px;
+      font-size: 14px;
+    }
+
     nav {
       display: flex;
       gap: 8px;
