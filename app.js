@@ -190,9 +190,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
     function renderAll() {
       renderWeekTitle();
       renderDashboard();
-      renderTasks();
       renderCategories();
       renderCategoryOptions();
+      renderTasks();
       renderCalendar();
       renderHistory();
     }
@@ -246,16 +246,117 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
     function renderTasks() {
       const container = document.getElementById("allTasks");
       const activeTasks = state.tasks.filter(t => t.isActive);
+      const viewMode = document.getElementById("taskViewMode")?.value || "category";
+      const categoryFilter = document.getElementById("taskCategoryFilter")?.value || "all";
+      const meta = document.getElementById("taskListMeta");
 
       if (activeTasks.length === 0) {
         container.innerHTML = `<div class="empty-state">Ingen aktive oppgaver ennå.</div>`;
+        if (meta) meta.textContent = "";
         return;
       }
 
-      container.innerHTML = activeTasks
-        .sort((a, b) => a.title.localeCompare(b.title))
-        .map(task => renderTaskCard(task, { dashboard: false }))
+      const visibleTasks = activeTasks.filter(task => {
+        return categoryFilter === "all" || task.categoryId === categoryFilter;
+      });
+
+      if (meta) {
+        meta.textContent = visibleTasks.length === activeTasks.length
+          ? `${visibleTasks.length} aktive oppgaver`
+          : `${visibleTasks.length} av ${activeTasks.length} aktive oppgaver`;
+      }
+
+      if (visibleTasks.length === 0) {
+        container.innerHTML = `<div class="empty-state">Ingen oppgaver matcher filteret.</div>`;
+        return;
+      }
+
+      if (viewMode === "alphabetical") {
+        container.innerHTML = sortTasksByTitle(visibleTasks)
+          .map(task => renderTaskCard(task, { dashboard: false }))
+          .join("");
+        return;
+      }
+
+      if (viewMode === "frequency") {
+        container.innerHTML = buildFrequencyGroups(visibleTasks)
+          .map(group => renderTaskGroup(group.title, group.tasks))
+          .join("");
+        return;
+      }
+
+      container.innerHTML = buildCategoryGroups(visibleTasks)
+        .map(group => renderTaskGroup(group.title, group.tasks, group.color))
         .join("");
+    }
+
+    function sortTasksByTitle(tasks) {
+      return [...tasks].sort((a, b) => a.title.localeCompare(b.title, "no-NO"));
+    }
+
+    function taskCountLabel(count) {
+      return count === 1 ? "1 oppgave" : `${count} oppgaver`;
+    }
+
+    function renderTaskGroup(title, tasks, color) {
+      return `
+        <section class="task-group">
+          <div class="task-group-header">
+            <div class="task-group-title">
+              ${color ? `<span class="dot" style="background:${color}"></span>` : ""}
+              <h3>${escapeHtml(title)}</h3>
+            </div>
+            <span class="task-group-count">${taskCountLabel(tasks.length)}</span>
+          </div>
+          <div class="task-list">
+            ${sortTasksByTitle(tasks)
+              .map(task => renderTaskCard(task, { dashboard: false }))
+              .join("")}
+          </div>
+        </section>`;
+    }
+
+    function buildCategoryGroups(tasks) {
+      const groups = new Map();
+
+      tasks.forEach(task => {
+        const category = getCategory(task.categoryId);
+        const key = task.categoryId || "unknown";
+        if (!groups.has(key)) {
+          groups.set(key, { title: category.name, color: category.color, tasks: [] });
+        }
+        groups.get(key).tasks.push(task);
+      });
+
+      return [...groups.values()].sort((a, b) => a.title.localeCompare(b.title, "no-NO"));
+    }
+
+    function buildFrequencyGroups(tasks) {
+      const order = ["weekly", "biweekly", "customWeeks", "monthly", "semiannual", "other"];
+      const groups = new Map();
+
+      tasks.forEach(task => {
+        const key = task.frequencyType === "customWeeks"
+          ? `customWeeks-${task.customIntervalWeeks || 1}`
+          : task.frequencyType || "other";
+        if (!groups.has(key)) {
+          groups.set(key, {
+            title: frequencyLabel(task),
+            orderKey: task.frequencyType || "other",
+            tasks: []
+          });
+        }
+        groups.get(key).tasks.push(task);
+      });
+
+      return [...groups.values()].sort((a, b) => {
+        const orderA = order.indexOf(a.orderKey);
+        const orderB = order.indexOf(b.orderKey);
+        const normalizedA = orderA === -1 ? order.length : orderA;
+        const normalizedB = orderB === -1 ? order.length : orderB;
+        if (normalizedA !== normalizedB) return normalizedA - normalizedB;
+        return a.title.localeCompare(b.title, "no-NO");
+      });
     }
 
     function renderTaskCard(task, options = {}) {
@@ -423,13 +524,29 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
     function renderCategoryOptions() {
       const select = document.getElementById("taskCategory");
       const currentValue = select.value;
-      select.innerHTML = state.categories
+      const activeCategories = state.categories
         .filter(c => c.isActive)
+        .sort((a, b) => a.name.localeCompare(b.name, "no-NO"));
+
+      select.innerHTML = activeCategories
         .map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`)
         .join("");
 
-      if (currentValue && state.categories.some(c => c.id === currentValue)) {
+      if (currentValue && activeCategories.some(c => c.id === currentValue)) {
         select.value = currentValue;
+      }
+
+      const filterSelect = document.getElementById("taskCategoryFilter");
+      if (!filterSelect) return;
+
+      const filterValue = filterSelect.value || "all";
+      filterSelect.innerHTML = `
+        <option value="all">Alle kategorier</option>
+        ${activeCategories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
+      `;
+
+      if (filterValue === "all" || activeCategories.some(c => c.id === filterValue)) {
+        filterSelect.value = filterValue;
       }
     }
 
@@ -654,6 +771,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       document.getElementById("taskForm").addEventListener("submit", handleTaskSubmit);
       document.getElementById("categoryForm").addEventListener("submit", handleCategorySubmit);
       document.getElementById("taskFrequency").addEventListener("change", toggleCustomInterval);
+      document.getElementById("taskViewMode").addEventListener("change", renderTasks);
+      document.getElementById("taskCategoryFilter").addEventListener("change", renderTasks);
       document.querySelectorAll(".color-swatch").forEach(swatch => {
         swatch.addEventListener("click", () => selectCategoryColor(swatch.dataset.color));
       });
