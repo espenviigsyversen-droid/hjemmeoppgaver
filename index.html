@@ -217,6 +217,15 @@
       font-size: 14px;
     }
 
+    .home-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
     .toolbar {
       display: flex;
       justify-content: space-between;
@@ -379,6 +388,34 @@
       justify-content: space-between;
       gap: 10px;
       align-items: center;
+    }
+
+    .setup-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+
+    .setup-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .setup-card h3 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: -0.3px;
+    }
+
+    .setup-card p {
+      margin: 0;
+      color: #4f4945;
+      line-height: 1.45;
     }
 
     .dot {
@@ -561,7 +598,8 @@
       header {
         align-items: flex-start;
         flex-direction: column;
-        margin-bottom: 16px;
+        gap: 10px;
+        margin-bottom: 14px;
       }
 
       nav {
@@ -577,19 +615,69 @@
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 4px;
-        padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
-        background: rgba(255, 255, 255, 0.94);
+        padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+        background: var(--white);
         border-top: 1px solid var(--warm-gray-2);
-        box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.08);
-        backdrop-filter: blur(14px);
+        border-radius: 22px 22px 0 0;
+        box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.16);
       }
 
       .brand h1 {
         font-size: 32px;
       }
 
-      .summary-grid, .form-grid {
+      .subtitle {
+        font-size: 14px;
+      }
+
+      .user-box {
+        padding: 8px 10px;
+        box-shadow: none;
+        border: 1px solid var(--warm-gray-2);
+      }
+
+      .user-box select {
+        padding: 8px 10px;
+      }
+
+      .form-grid {
         grid-template-columns: 1fr;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+
+      .summary-card {
+        border-radius: 14px;
+        padding: 12px 10px;
+        box-shadow: none;
+        border: 1px solid var(--warm-gray-2);
+      }
+
+      .summary-card strong {
+        font-size: 24px;
+        margin-bottom: 4px;
+      }
+
+      .summary-card span {
+        font-size: 12px;
+        line-height: 1.2;
+      }
+
+      .home-heading {
+        align-items: flex-start;
+        margin-bottom: 12px;
+      }
+
+      .home-heading .btn-primary {
+        padding: 10px 14px;
+      }
+
+      #dashboard .week-title {
+        font-size: 24px;
       }
 
       .calendar-nav {
@@ -642,11 +730,26 @@
 
       .task-card {
         grid-template-columns: auto 1fr;
+        gap: 12px;
+        padding: 14px;
       }
 
       .task-card .actions {
         grid-column: 1 / -1;
         justify-content: flex-start;
+      }
+
+      .task-title {
+        font-size: 17px;
+      }
+
+      .task-description {
+        margin-bottom: 8px;
+      }
+
+      .pill {
+        font-size: 12px;
+        padding: 5px 8px;
       }
     }
   </style>
@@ -668,25 +771,21 @@
     </header>
 
     <nav aria-label="Hovednavigasjon">
-      <button class="tab-button active" data-tab="dashboard">Dashboard</button>
+      <button class="tab-button active" data-tab="dashboard">Hjem</button>
       <button class="tab-button" data-tab="tasks">Oppgaver</button>
-      <button class="tab-button" data-tab="categories">Kategorier</button>
       <button class="tab-button" data-tab="calendar">Kalender</button>
       <button class="tab-button" data-tab="history">Historikk</button>
+      <button class="tab-button" data-tab="setup">Setup</button>
     </nav>
 
     <nav class="bottom-nav" aria-label="Mobilnavigasjon">
       <button class="bottom-tab active" data-tab="dashboard" type="button">
         <span class="bottom-tab-icon" aria-hidden="true">⌂</span>
-        <span>Dash</span>
+        <span>Hjem</span>
       </button>
       <button class="bottom-tab" data-tab="tasks" type="button">
         <span class="bottom-tab-icon" aria-hidden="true">✓</span>
         <span>Oppgaver</span>
-      </button>
-      <button class="bottom-tab" data-tab="categories" type="button">
-        <span class="bottom-tab-icon" aria-hidden="true">●</span>
-        <span>Kategorier</span>
       </button>
       <button class="bottom-tab" data-tab="calendar" type="button">
         <span class="bottom-tab-icon" aria-hidden="true">□</span>
@@ -696,24 +795,28 @@
         <span class="bottom-tab-icon" aria-hidden="true">↺</span>
         <span>Historikk</span>
       </button>
+      <button class="bottom-tab" data-tab="setup" type="button">
+        <span class="bottom-tab-icon" aria-hidden="true">⚙</span>
+        <span>Setup</span>
+      </button>
     </nav>
 
     <main>
       <section id="dashboard" class="panel active">
         
 
-        <div class="summary-grid">
-          <div class="summary-card"><strong id="totalDue">0</strong><span>oppgaver denne uken</span></div>
-          <div class="summary-card"><strong id="totalDone">0</strong><span>utført</span></div>
-          <div class="summary-card"><strong id="totalRemaining">0</strong><span>gjenstår</span></div>
-        </div>
-
-        <div class="toolbar">
+        <div class="home-heading">
           <div>
             <div class="week-title" id="weekTitle"></div>
             <div class="subtitle">Ugjorte oppgaver blir automatisk med videre til neste uke.</div>
           </div>
           <button class="btn-primary" onclick="switchTab('tasks')">+ Ny oppgave</button>
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-card"><strong id="totalRemaining">0</strong><span>gjenstår</span></div>
+          <div class="summary-card"><strong id="totalDone">0</strong><span>utført</span></div>
+          <div class="summary-card"><strong id="totalDue">0</strong><span>totalt</span></div>
         </div>
 
         <div id="dashboardTasks" class="task-list"></div>
@@ -777,7 +880,38 @@
         <div id="allTasks" class="task-list"></div>
       </section>
 
+      <section id="setup" class="panel">
+        <div class="toolbar">
+          <div>
+            <h2 class="section-title" style="margin:0;">Setup</h2>
+            <div class="subtitle">Konfigurasjon og vedlikehold av appen.</div>
+          </div>
+        </div>
+
+        <div class="setup-grid">
+          <div class="setup-card">
+            <h3>Metadata</h3>
+            <p>Administrer valg som brukes på tvers av appen.</p>
+            <button class="btn-secondary" type="button" onclick="switchTab('categories')">Kategorier</button>
+          </div>
+
+          <div class="setup-card">
+            <h3>App</h3>
+            <p>Hent inn siste publiserte versjon fra GitHub Pages.</p>
+            <button class="btn-primary" type="button" onclick="refreshApp()">Oppdater appen</button>
+          </div>
+        </div>
+      </section>
+
       <section id="categories" class="panel">
+        <div class="toolbar">
+          <div>
+            <h2 class="section-title" style="margin:0;">Kategorier</h2>
+            <div class="subtitle">Konfigurer kategorier og farger for husarbeid.</div>
+          </div>
+          <button class="btn-light" type="button" onclick="switchTab('setup')">Tilbake til Setup</button>
+        </div>
+
         <div class="card" style="margin-bottom: 18px;">
           <h2 class="section-title">Ny kategori</h2>
           <form id="categoryForm" class="form-grid">
@@ -1029,7 +1163,8 @@
 
     function switchTab(tabId) {
       document.querySelectorAll(".tab-button, .bottom-tab").forEach(btn => {
-        btn.classList.toggle("active", btn.dataset.tab === tabId);
+        const isSetupChild = tabId === "categories" && btn.dataset.tab === "setup";
+        btn.classList.toggle("active", btn.dataset.tab === tabId || isSetupChild);
       });
       document.querySelectorAll(".panel").forEach(panel => {
         panel.classList.toggle("active", panel.id === tabId);
@@ -1423,6 +1558,26 @@
       await Promise.all(snapshot.docs.map(d => deleteDoc(d.ref)));
     }
 
+    async function refreshApp() {
+      try {
+        if ("caches" in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map(name => caches.delete(name)));
+        }
+
+        if ("serviceWorker" in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map(registration => registration.unregister()));
+        }
+      } catch (error) {
+        console.warn("Kunne ikke tømme mellomlager før oppdatering:", error);
+      }
+
+      const url = new URL(window.location.href);
+      url.searchParams.set("appVersion", Date.now().toString());
+      window.location.replace(url.toString());
+    }
+
     function escapeHtml(value) {
       return String(value)
         .replaceAll("&", "&amp;")
@@ -1504,6 +1659,7 @@
     window.clearHistory = clearHistory;
     window.changeCalendarMonth = changeCalendarMonth;
     window.goToCurrentMonth = goToCurrentMonth;
+    window.refreshApp = refreshApp;
 
     init().catch(error => {
       console.error(error);
