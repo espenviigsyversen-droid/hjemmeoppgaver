@@ -83,9 +83,12 @@
       </section>
 
       <section id="tasks" class="panel">
-        <div class="toolbar">
-          <h2 class="section-title" style="margin:0;">Alle aktive oppgaver</h2>
-          <button class="btn-light btn-small" type="button" onclick="openTaskForm()">+ Legg til oppgave</button>
+        <div class="toolbar tasks-toolbar">
+          <div>
+            <h2 class="section-title" style="margin:0;">Oppgaver</h2>
+            <div class="subtitle" id="taskListMeta"></div>
+          </div>
+          <button class="btn-light btn-small" type="button" onclick="openTaskForm()">+ Legg til</button>
         </div>
         <div class="task-controls" aria-label="Filtrer og sorter oppgaver">
           <div>
@@ -102,7 +105,6 @@
               <option value="all">Alle kategorier</option>
             </select>
           </div>
-          <div class="task-list-meta" id="taskListMeta"></div>
         </div>
         <div id="allTasks" class="task-list"></div>
       </section>

@@ -371,7 +371,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 
       if (viewMode === "alphabetical") {
         container.innerHTML = sortTasksByTitle(visibleTasks)
-          .map(task => renderTaskCard(task, { dashboard: false }))
+          .map(task => renderTaskCard(task, { compact: true }))
           .join("");
         return;
       }
@@ -408,7 +408,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
           </div>
           <div class="task-list">
             ${sortTasksByTitle(tasks)
-              .map(task => renderTaskCard(task, { dashboard: false }))
+              .map(task => renderTaskCard(task, { compact: true }))
               .join("")}
           </div>
         </section>`;
@@ -479,6 +479,24 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
               <span>${assignedLabel(task)}</span>
               ${hasSeason ? `<span>${seasonLabel(task)}</span>` : ""}
               <span class="${completed ? "dashboard-done" : "dashboard-open"}">${doneText}</span>
+            </div>
+          </div>
+        </article>`;
+      }
+
+      if (options.compact) {
+        return `
+        <article class="task-card task-row" onclick="openTaskDetail('${task.id}')">
+          <span class="dot" style="background:${category.color}"></span>
+          <div class="task-row-main">
+            <div class="dashboard-task-title-row">
+              <h3 class="task-title">${escapeHtml(task.title)}</h3>
+              <span class="dashboard-chevron" aria-hidden="true">›</span>
+            </div>
+            <div class="dashboard-meta">
+              <span>${frequencyLabel(task)}</span>
+              <span>${assignedLabel(task)}</span>
+              ${hasSeason ? `<span>${seasonLabel(task)}</span>` : ""}
             </div>
           </div>
         </article>`;
