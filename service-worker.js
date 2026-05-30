@@ -1,4 +1,4 @@
-const CACHE_NAME = "husarbeid-v2";
+const CACHE_NAME = "husarbeid-v3";
 const CORE_ASSETS = [
   "./",
   "./index.html",

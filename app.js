@@ -17,7 +17,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       serverTimestamp
     } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-    const APP_VERSION = "2026.05.30.1";
+    const APP_VERSION = "2026.05.30.2";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAMPfQ9gX9rbuvcPsVjYVtq5IT_orjDBPs",
@@ -71,6 +71,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 
     function addMonths(date, amount) {
       return new Date(date.getFullYear(), date.getMonth() + amount, 1);
+    }
+
+    function addCalendarMonths(date, amount) {
+      const target = new Date(date);
+      const originalDay = target.getDate();
+      target.setDate(1);
+      target.setMonth(target.getMonth() + amount);
+      const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+      target.setDate(Math.min(originalDay, lastDay));
+      return target;
     }
 
     function startOfISOWeek(date = new Date()) {
@@ -152,30 +162,52 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
     }
 
     function shouldAppearThisWeek(task) {
-      if (!task.isActive) return false;
+      return Boolean(getTaskDueWeekStartISO(task));
+    }
 
-      const currentWeekStart = getWeekStartISO();
-      if (toDate(task.startDate) > endOfISOWeek()) return false;
-      if (!isTaskInSeasonForWeek(task, currentWeekStart)) return false;
+    function getTaskDueWeekStartISO(task, asOfDate = new Date()) {
+      if (!task.isActive || !task.startDate) return null;
+
+      const currentWeekStart = startOfISOWeek(asOfDate);
+      const currentWeekStartISO = toISO(currentWeekStart);
+      const taskStartWeek = startOfISOWeek(toDate(task.startDate));
+      if (taskStartWeek > currentWeekStart) return null;
 
       const latestCompletion = getLatestCompletion(task.id);
 
       if (!latestCompletion) {
-        return isFrequencyDue(task, task.startDate, currentWeekStart) || toDate(task.startDate) <= endOfISOWeek();
+        for (let weekStart = new Date(taskStartWeek); weekStart <= currentWeekStart; weekStart = addDays(weekStart, 7)) {
+          const weekStartISO = toISO(weekStart);
+          if (isTaskScheduledForWeek(task, weekStartISO)) return weekStartISO;
+        }
+        return null;
       }
 
-      const completedWeek = latestCompletion.weekStartDate;
-      if (completedWeek === currentWeekStart) return true;
+      const completionDateISO = latestCompletion.completedAt.slice(0, 10);
+      const completedWeekStart = startOfISOWeek(toDate(completionDateISO));
 
-      return isFrequencyDue(task, latestCompletion.completedAt.slice(0, 10), currentWeekStart);
+      if (latestCompletion.weekStartDate === currentWeekStartISO) {
+        return currentWeekStartISO;
+      }
+
+      for (let weekStart = addDays(completedWeekStart, 7); weekStart <= currentWeekStart; weekStart = addDays(weekStart, 7)) {
+        const weekStartISO = toISO(weekStart);
+        if (!isTaskInSeasonForWeek(task, weekStartISO)) continue;
+        if (isFrequencyDue(task, completionDateISO, weekStartISO)) return weekStartISO;
+      }
+
+      return null;
     }
 
     function isFrequencyDue(task, referenceDateISO, currentWeekStartISO) {
-      if (task.frequencyType === "weekly") return weeksBetween(referenceDateISO, currentWeekStartISO) >= 1;
-      if (task.frequencyType === "biweekly") return weeksBetween(referenceDateISO, currentWeekStartISO) >= 2;
-      if (task.frequencyType === "customWeeks") return weeksBetween(referenceDateISO, currentWeekStartISO) >= Number(task.customIntervalWeeks || 1);
-      if (task.frequencyType === "monthly") return monthsBetween(referenceDateISO, currentWeekStartISO) >= 1;
-      if (task.frequencyType === "semiannual") return monthsBetween(referenceDateISO, currentWeekStartISO) >= 6;
+      const referenceDate = toDate(referenceDateISO);
+      const currentWeekEnd = endOfISOWeek(toDate(currentWeekStartISO));
+
+      if (task.frequencyType === "weekly") return addDays(referenceDate, 7) <= currentWeekEnd;
+      if (task.frequencyType === "biweekly") return addDays(referenceDate, 14) <= currentWeekEnd;
+      if (task.frequencyType === "customWeeks") return addDays(referenceDate, Math.max(1, Number(task.customIntervalWeeks || 1)) * 7) <= currentWeekEnd;
+      if (task.frequencyType === "monthly") return addCalendarMonths(referenceDate, 1) <= currentWeekEnd;
+      if (task.frequencyType === "semiannual") return addCalendarMonths(referenceDate, 6) <= currentWeekEnd;
       return true;
     }
 
@@ -228,15 +260,22 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 
     function taskStatusLabel(task) {
       if (!task.isActive) return "Deaktivert";
-      if (!isTaskInSeasonForWeek(task, getWeekStartISO())) return "Sesongpause";
       if (isCompletedThisWeek(task.id)) return "Utført denne uken";
-      if (shouldAppearThisWeek(task)) return "Klar denne uken";
+      const dueWeekStartISO = getTaskDueWeekStartISO(task);
+      if (dueWeekStartISO && dueWeekStartISO < getWeekStartISO()) return "Forfalt";
+      if (dueWeekStartISO) return "Klar denne uken";
+      if (!isTaskInSeasonForWeek(task, getWeekStartISO())) return "Sesongpause";
       return "Planlagt";
     }
 
     function nextTaskOccurrenceLabel(task) {
       if (!task.isActive) return "Ikke aktiv";
-      if (shouldAppearThisWeek(task) && !isCompletedThisWeek(task.id)) return "Denne uken";
+      const dueWeekStartISO = getTaskDueWeekStartISO(task);
+      if (dueWeekStartISO && !isCompletedThisWeek(task.id)) {
+        return dueWeekStartISO < getWeekStartISO()
+          ? `Forfalt fra uke ${getISOWeek(toDate(dueWeekStartISO))}: ${formatDate(dueWeekStartISO)}`
+          : "Denne uken";
+      }
 
       const latestCompletion = getLatestCompletion(task.id);
       const start = startOfISOWeek(new Date());
@@ -336,7 +375,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       }
 
       container.innerHTML = visibleTasks
-        .sort((a, b) => a.title.localeCompare(b.title))
+        .sort((a, b) => {
+          const dueA = getTaskDueWeekStartISO(a) || "";
+          const dueB = getTaskDueWeekStartISO(b) || "";
+          if (dueA !== dueB) return dueA.localeCompare(dueB);
+          return a.title.localeCompare(b.title, "no-NO");
+        })
         .map(task => renderTaskCard(task, { dashboard: true }))
         .join("");
     }
@@ -465,8 +509,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       const hasSeason = task.seasonStartMonthDay && task.seasonEndMonthDay;
 
       if (options.dashboard) {
+        const dueWeekStartISO = getTaskDueWeekStartISO(task);
+        const overdue = dueWeekStartISO && dueWeekStartISO < getWeekStartISO() && !completed;
+        const statusText = overdue ? `Forfalt uke ${getISOWeek(toDate(dueWeekStartISO))}` : doneText;
+
         return `
-        <article class="task-card dashboard-task ${completed ? "done" : ""}" onclick="openTaskDetail('${task.id}')">
+        <article class="task-card dashboard-task ${completed ? "done" : ""} ${overdue ? "overdue" : ""}" onclick="openTaskDetail('${task.id}')">
           <input class="checkbox" type="checkbox" ${completed ? "checked" : ""} onclick="event.stopPropagation()" onchange="toggleComplete('${task.id}', this.checked)" aria-label="Marker ${escapeHtml(task.title)} som utført" />
           <div class="dashboard-task-main">
             <div class="dashboard-task-title-row">
@@ -478,7 +526,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
               <span>${frequencyLabel(task)}</span>
               <span>${assignedLabel(task)}</span>
               ${hasSeason ? `<span>${seasonLabel(task)}</span>` : ""}
-              <span class="${completed ? "dashboard-done" : "dashboard-open"}">${doneText}</span>
+              <span class="${completed ? "dashboard-done" : "dashboard-open"}">${statusText}</span>
             </div>
           </div>
         </article>`;
@@ -633,6 +681,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 
       const category = getCategory(task.categoryId);
       const weekStart = getWeekStartISO();
+      const scheduledWeekStart = getTaskDueWeekStartISO(task) || weekStart;
 
       if (checked) {
         if (!isCompletedThisWeek(taskId)) {
@@ -643,7 +692,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
             completedBy: currentUser,
             completedAt: new Date().toISOString(),
             weekStartDate: weekStart,
-            scheduledWeekStartDate: weekStart,
+            scheduledWeekStartDate: scheduledWeekStart,
             createdAt: serverTimestamp()
           });
         }
