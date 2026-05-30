@@ -262,7 +262,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
     }
 
     function switchTab(tabId) {
-      document.querySelectorAll(".tab-button, .bottom-tab").forEach(btn => {
+      document.querySelectorAll(".tab-button, .bottom-tab, .icon-button").forEach(btn => {
         const isSetupChild = ["categories", "task-editor"].includes(tabId) && btn.dataset.tab === "setup";
         const isTasksChild = tabId === "task-detail" && btn.dataset.tab === "tasks";
         btn.classList.toggle("active", btn.dataset.tab === tabId || isSetupChild || isTasksChild);
@@ -291,7 +291,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
     function renderWeekTitle() {
       const start = getWeekStartISO();
       const end = getWeekEndISO();
-      document.getElementById("weekTitle").textContent = `Uke ${getISOWeek(new Date())}: ${formatDate(start)} – ${formatDate(end)}`;
+      document.getElementById("weekTitle").textContent = `Uke ${getISOWeek(new Date())} · ${formatShortDate(start)} - ${formatShortDate(end)}`;
     }
 
     function getISOWeek(date) {
@@ -304,6 +304,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 
     function formatDate(iso) {
       return new Intl.DateTimeFormat("no-NO", { day: "2-digit", month: "short", year: "numeric" }).format(toDate(iso));
+    }
+
+    function formatShortDate(iso) {
+      return new Intl.DateTimeFormat("no-NO", { day: "numeric", month: "short" }).format(toDate(iso));
     }
 
     function renderDashboard() {
@@ -457,9 +461,29 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       const doneText = completion ? `Utført av ${completion.completedBy}` : "Ikke utført";
       const hasSeason = task.seasonStartMonthDay && task.seasonEndMonthDay;
 
+      if (options.dashboard) {
+        return `
+        <article class="task-card dashboard-task ${completed ? "done" : ""}" onclick="openTaskDetail('${task.id}')">
+          <input class="checkbox" type="checkbox" ${completed ? "checked" : ""} onclick="event.stopPropagation()" onchange="toggleComplete('${task.id}', this.checked)" aria-label="Marker ${escapeHtml(task.title)} som utført" />
+          <div class="dashboard-task-main">
+            <div class="dashboard-task-title-row">
+              <h3 class="task-title">${escapeHtml(task.title)}</h3>
+              <span class="dashboard-chevron" aria-hidden="true">›</span>
+            </div>
+            <div class="dashboard-meta">
+              <span class="dashboard-category" style="--category-color:${category.color}">${escapeHtml(category.name)}</span>
+              <span>${frequencyLabel(task)}</span>
+              <span>${assignedLabel(task)}</span>
+              ${hasSeason ? `<span>${seasonLabel(task)}</span>` : ""}
+              <span class="${completed ? "dashboard-done" : "dashboard-open"}">${doneText}</span>
+            </div>
+          </div>
+        </article>`;
+      }
+
       return `
         <article class="task-card ${completed ? "done" : ""}">
-          ${options.dashboard ? `<input class="checkbox" type="checkbox" ${completed ? "checked" : ""} onchange="toggleComplete('${task.id}', this.checked)" />` : `<span class="dot" style="background:${category.color}"></span>`}
+          <span class="dot" style="background:${category.color}"></span>
           <div>
             <h3 class="task-title">${escapeHtml(task.title)}</h3>
             <p class="task-description">${escapeHtml(task.description || "Ingen beskrivelse")}</p>
@@ -468,13 +492,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
               <span class="pill purple">${frequencyLabel(task)}</span>
               <span class="pill pink">${assignedLabel(task)}</span>
               ${hasSeason ? `<span class="pill">${seasonLabel(task)}</span>` : ""}
-              ${options.dashboard ? `<span class="pill ${completed ? "pink" : "red"}">${doneText}</span>` : ""}
             </div>
           </div>
           <div class="actions">
             <button class="btn-light" onclick="openTaskDetail('${task.id}')">Detaljer</button>
-            ${!options.dashboard ? `<button class="btn-light" onclick="editTask('${task.id}')">Rediger</button>` : ""}
-            ${!options.dashboard ? `<button class="btn-danger" onclick="deactivateTask('${task.id}')">Deaktiver</button>` : ""}
+            <button class="btn-light" onclick="editTask('${task.id}')">Rediger</button>
+            <button class="btn-danger" onclick="deactivateTask('${task.id}')">Deaktiver</button>
           </div>
         </article>`;
     }
@@ -991,7 +1014,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
     }
 
     async function init() {
-      document.querySelectorAll(".tab-button, .bottom-tab").forEach(btn => {
+      document.querySelectorAll(".tab-button, .bottom-tab, .icon-button").forEach(btn => {
         btn.addEventListener("click", () => switchTab(btn.dataset.tab));
       });
 

@@ -21,12 +21,17 @@
         <h1>Husarbeid</h1>
         <div class="subtitle">Delt ukesoversikt for hjemmet</div>
       </div>
-      <div class="user-box">
-        <span>Bruker</span>
-        <select id="currentUser" aria-label="Velg bruker">
-          <option value="Espen">Espen</option>
-          <option value="Line">Line</option>
-        </select>
+      <div class="header-actions">
+        <div class="user-box">
+          <span>Bruker</span>
+          <select id="currentUser" aria-label="Velg bruker">
+            <option value="Espen">Espen</option>
+            <option value="Line">Line</option>
+          </select>
+        </div>
+        <button class="icon-button" data-tab="setup" type="button" aria-label="Setup" title="Setup">
+          <span aria-hidden="true">⚙</span>
+        </button>
       </div>
     </header>
 
@@ -35,7 +40,6 @@
       <button class="tab-button" data-tab="tasks">Oppgaver</button>
       <button class="tab-button" data-tab="calendar">Kalender</button>
       <button class="tab-button" data-tab="history">Historikk</button>
-      <button class="tab-button" data-tab="setup">Setup</button>
     </nav>
 
     <nav class="bottom-nav" aria-label="Mobilnavigasjon">
@@ -55,10 +59,6 @@
         <span class="bottom-tab-icon" aria-hidden="true">↺</span>
         <span>Historikk</span>
       </button>
-      <button class="bottom-tab" data-tab="setup" type="button">
-        <span class="bottom-tab-icon" aria-hidden="true">⚙</span>
-        <span>Setup</span>
-      </button>
     </nav>
 
     <main>
@@ -70,7 +70,7 @@
             <div class="week-title" id="weekTitle"></div>
             <div class="subtitle">Ugjorte oppgaver blir automatisk med videre til neste uke.</div>
           </div>
-          <button class="btn-primary" onclick="openTaskForm()">+ Ny oppgave</button>
+          <button class="btn-primary btn-compact" onclick="openTaskForm()">+ Ny oppgave</button>
         </div>
 
         <div class="summary-grid">
