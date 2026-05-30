@@ -130,6 +130,7 @@
         <div class="card">
           <form id="taskForm">
             <input type="hidden" id="editingTaskId" />
+            <input type="hidden" id="editingTaskUpdatedAt" />
             <div class="form-grid">
               <div>
                 <label for="taskTitle">Tittel</label>
@@ -299,6 +300,14 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div id="updatePrompt" class="update-prompt" hidden>
+    <div class="update-dialog" role="dialog" aria-modal="true" aria-labelledby="updatePromptTitle">
+      <h2 id="updatePromptTitle">Ny versjon er klar</h2>
+      <p>Oppdater appen for å få siste versjon før du fortsetter.</p>
+      <button class="btn-primary" type="button" onclick="refreshApp()">Oppdater app</button>
+    </div>
   </div>
 
     <script type="module" src="app.js"></script>

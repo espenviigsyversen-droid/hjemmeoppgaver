@@ -1,9 +1,10 @@
-const CACHE_NAME = "husarbeid-v1";
+const CACHE_NAME = "husarbeid-v2";
 const CORE_ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./app-version.json",
   "./manifest.json",
   "./Husarbeidikon.png"
 ];

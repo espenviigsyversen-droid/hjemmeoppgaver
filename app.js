@@ -11,10 +11,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       updateDoc,
       deleteDoc,
       onSnapshot,
+      getDoc,
       getDocs,
       query,
       serverTimestamp
     } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+
+    const APP_VERSION = "2026.05.30.1";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAMPfQ9gX9rbuvcPsVjYVtq5IT_orjDBPs",
@@ -636,6 +639,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       event.preventDefault();
 
       const editingId = document.getElementById("editingTaskId").value;
+      const editingTaskUpdatedAt = document.getElementById("editingTaskUpdatedAt").value;
       const assignedValue = document.getElementById("taskAssignedTo").value;
       const assignedTo = assignedValue === "both" ? ["Espen", "Line"] : [assignedValue];
       const isSeasonal = document.getElementById("taskSeasonMode").value === "seasonal";
@@ -660,7 +664,25 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       }
 
       if (editingId) {
-        await updateDoc(doc(db, "households", HOUSEHOLD_ID, "tasks", editingId), taskData);
+        const taskRef = doc(db, "households", HOUSEHOLD_ID, "tasks", editingId);
+        const latestTask = await getDoc(taskRef);
+        const latestUpdatedAt = latestTask.exists() ? latestTask.data().updatedAt || "" : "";
+
+        if (!latestTask.exists()) {
+          alert("Denne oppgaven finnes ikke lenger. Oppgavelisten oppdateres nå.");
+          resetTaskForm();
+          switchTab("tasks");
+          return;
+        }
+
+        if (latestUpdatedAt && editingTaskUpdatedAt && latestUpdatedAt !== editingTaskUpdatedAt) {
+          alert("Denne oppgaven er endret av en annen enhet etter at du åpnet redigeringen. Oppdaterte data vises nå, så åpne oppgaven på nytt før du lagrer.");
+          resetTaskForm();
+          switchTab("tasks");
+          return;
+        }
+
+        await updateDoc(taskRef, taskData);
       } else {
         await addDoc(tasksRef, {
           ...taskData,
@@ -677,6 +699,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       if (!task) return;
 
       document.getElementById("editingTaskId").value = task.id;
+      document.getElementById("editingTaskUpdatedAt").value = task.updatedAt || "";
       document.getElementById("taskTitle").value = task.title;
       document.getElementById("taskDescription").value = task.description || "";
       document.getElementById("taskCategory").value = task.categoryId;
@@ -705,6 +728,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
     function resetTaskForm() {
       document.getElementById("taskForm").reset();
       document.getElementById("editingTaskId").value = "";
+      document.getElementById("editingTaskUpdatedAt").value = "";
       document.getElementById("taskStartDate").value = todayISO();
       document.getElementById("taskSeasonMode").value = "allYear";
       document.getElementById("taskSeasonStart").value = "";
@@ -961,6 +985,22 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       window.location.replace(url.toString());
     }
 
+    async function checkForAppUpdate() {
+      try {
+        const response = await fetch(`./app-version.json?ts=${Date.now()}`, {
+          cache: "no-store"
+        });
+        if (!response.ok) return;
+
+        const latest = await response.json();
+        if (latest.version && latest.version !== APP_VERSION) {
+          document.getElementById("updatePrompt")?.removeAttribute("hidden");
+        }
+      } catch (error) {
+        console.warn("Kunne ikke sjekke appversjon:", error);
+      }
+    }
+
     function escapeHtml(value) {
       return String(value)
         .replaceAll("&", "&amp;")
@@ -1037,6 +1077,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 
       resetTaskForm();
       renderAll();
+      checkForAppUpdate();
       await signInAnonymously(auth);
       await seedDefaultCategoriesIfNeeded();
       subscribeToFirestore();
