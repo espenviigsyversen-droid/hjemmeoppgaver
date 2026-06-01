@@ -17,7 +17,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       serverTimestamp
     } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-    const APP_VERSION = "2026.05.30.2";
+    const APP_VERSION = "2026.06.01.1";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAMPfQ9gX9rbuvcPsVjYVtq5IT_orjDBPs",
@@ -38,12 +38,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
     const categoriesRef = collection(db, householdPath, "categories");
     const tasksRef = collection(db, householdPath, "tasks");
     const completionsRef = collection(db, householdPath, "completions");
+    const skipsRef = collection(db, householdPath, "skips");
 
     let state = {
       users: ["Espen", "Line"],
       categories: [],
       tasks: [],
-      completions: []
+      completions: [],
+      skips: []
     };
 
     let calendarMonthDate = new Date();
@@ -165,6 +167,24 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       return Boolean(getTaskDueWeekStartISO(task));
     }
 
+    function defaultRollForwardMissed(frequencyType) {
+      return !["weekly", "biweekly"].includes(frequencyType);
+    }
+
+    function taskRollsForwardMissed(task) {
+      return typeof task.rollForwardMissed === "boolean"
+        ? task.rollForwardMissed
+        : defaultRollForwardMissed(task.frequencyType);
+    }
+
+    function getSkipForTaskWeek(taskId, weekStartISO) {
+      return state.skips.find(skip => skip.taskId === taskId && skip.weekStartDate === weekStartISO);
+    }
+
+    function isSkippedForWeek(taskId, weekStartISO) {
+      return Boolean(getSkipForTaskWeek(taskId, weekStartISO));
+    }
+
     function getTaskDueWeekStartISO(task, asOfDate = new Date()) {
       if (!task.isActive || !task.startDate) return null;
 
@@ -173,11 +193,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       const taskStartWeek = startOfISOWeek(toDate(task.startDate));
       if (taskStartWeek > currentWeekStart) return null;
 
+      if (!taskRollsForwardMissed(task)) {
+        if (!isTaskScheduledForWeek(task, currentWeekStartISO)) return null;
+        if (isSkippedForWeek(task.id, currentWeekStartISO)) return null;
+        return currentWeekStartISO;
+      }
+
       const latestCompletion = getLatestCompletion(task.id);
 
       if (!latestCompletion) {
         for (let weekStart = new Date(taskStartWeek); weekStart <= currentWeekStart; weekStart = addDays(weekStart, 7)) {
           const weekStartISO = toISO(weekStart);
+          if (isSkippedForWeek(task.id, weekStartISO)) continue;
           if (isTaskScheduledForWeek(task, weekStartISO)) return weekStartISO;
         }
         return null;
@@ -192,6 +219,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 
       for (let weekStart = addDays(completedWeekStart, 7); weekStart <= currentWeekStart; weekStart = addDays(weekStart, 7)) {
         const weekStartISO = toISO(weekStart);
+        if (isSkippedForWeek(task.id, weekStartISO)) continue;
         if (!isTaskInSeasonForWeek(task, weekStartISO)) continue;
         if (isFrequencyDue(task, completionDateISO, weekStartISO)) return weekStartISO;
       }
@@ -596,6 +624,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       const latestCompletion = completions[0];
       const completedThisWeek = isCompletedThisWeek(task.id);
       const status = taskStatusLabel(task);
+      const dueWeekStartISO = getTaskDueWeekStartISO(task);
+      const canSkipOccurrence = dueWeekStartISO && !completedThisWeek && !isSkippedForWeek(task.id, dueWeekStartISO);
 
       title.textContent = task.title;
       subtitle.textContent = `${category.name} · ${status}`;
@@ -621,6 +651,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
               ${completedThisWeek
                 ? `<button class="btn-light" type="button" onclick="setTaskCompletionFromDetail('${task.id}', false)">Angre utført denne uken</button>`
                 : `<button class="btn-primary" type="button" onclick="setTaskCompletionFromDetail('${task.id}', true)">Marker utført</button>`}
+              ${canSkipOccurrence ? `<button class="btn-light" type="button" onclick="skipTaskOccurrence('${task.id}')">Hopp over denne gangen</button>` : ""}
               <button class="btn-light" type="button" onclick="editTask('${task.id}')">Rediger</button>
               <button class="btn-danger" type="button" onclick="deactivateTask('${task.id}')">Deaktiver</button>
             </div>
@@ -631,6 +662,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
             ${renderDetailMetric("Neste gang", nextTaskOccurrenceLabel(task))}
             ${renderDetailMetric("Sist utført", latestCompletion ? `${formatDate(latestCompletion.completedAt.slice(0, 10))} av ${escapeHtml(latestCompletion.completedBy)}` : "Ingen historikk")}
             ${renderDetailMetric("Første planlagte uke", formatDate(task.startDate))}
+            ${renderDetailMetric("Rulles videre", taskRollsForwardMissed(task) ? "Ja" : "Nei")}
           </div>
 
           <article class="card">
@@ -670,6 +702,37 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 
     async function setTaskCompletionFromDetail(taskId, checked) {
       await toggleComplete(taskId, checked);
+      selectedTaskId = taskId;
+      renderAll();
+    }
+
+    async function skipTaskOccurrence(taskId) {
+      const currentUser = document.getElementById("currentUser").value;
+      const task = state.tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const dueWeekStart = getTaskDueWeekStartISO(task);
+      if (!dueWeekStart) return;
+
+      if (!confirm("Vil du hoppe over denne forekomsten? Den teller ikke som utført, men fjernes fra Hjem.")) return;
+
+      try {
+        if (!isSkippedForWeek(taskId, dueWeekStart)) {
+          await addDoc(skipsRef, {
+            taskId,
+            taskTitleSnapshot: task.title,
+            skippedBy: currentUser,
+            skippedAt: new Date().toISOString(),
+            weekStartDate: dueWeekStart,
+            createdAt: serverTimestamp()
+          });
+        }
+      } catch (error) {
+        console.error("Kunne ikke hoppe over forekomst:", error);
+        alert("Klarte ikke å hoppe over forekomsten. Sjekk at Firestore Rules tillater skriving til skips.");
+        return;
+      }
+
       selectedTaskId = taskId;
       renderAll();
     }
@@ -721,6 +784,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
         seasonStartMonthDay: isSeasonal ? monthDayFromISO(document.getElementById("taskSeasonStart").value) : null,
         seasonEndMonthDay: isSeasonal ? monthDayFromISO(document.getElementById("taskSeasonEnd").value) : null,
         assignedTo,
+        rollForwardMissed: document.getElementById("taskRollForwardMissed").checked,
         isActive: true,
         updatedAt: new Date().toISOString()
       };
@@ -773,6 +837,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       document.getElementById("taskStartDate").value = task.startDate;
       document.getElementById("taskFrequency").value = task.frequencyType;
       document.getElementById("customIntervalWeeks").value = task.customIntervalWeeks || 3;
+      document.getElementById("taskRollForwardMissed").checked = taskRollsForwardMissed(task);
       document.getElementById("taskAssignedTo").value = task.assignedTo?.length === 1 ? task.assignedTo[0] : "both";
       document.getElementById("taskSeasonMode").value = task.seasonStartMonthDay && task.seasonEndMonthDay ? "seasonal" : "allYear";
       document.getElementById("taskSeasonStart").value = dateInputValueFromMonthDay(task.seasonStartMonthDay);
@@ -797,6 +862,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
       document.getElementById("editingTaskId").value = "";
       document.getElementById("editingTaskUpdatedAt").value = "";
       document.getElementById("taskStartDate").value = todayISO();
+      document.getElementById("taskRollForwardMissed").checked = defaultRollForwardMissed(document.getElementById("taskFrequency").value);
       document.getElementById("taskSeasonMode").value = "allYear";
       document.getElementById("taskSeasonStart").value = "";
       document.getElementById("taskSeasonEnd").value = "";
@@ -814,6 +880,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
     function toggleCustomInterval() {
       const frequency = document.getElementById("taskFrequency").value;
       document.getElementById("customIntervalWrap").style.display = frequency === "customWeeks" ? "block" : "none";
+      if (!document.getElementById("editingTaskId").value) {
+        document.getElementById("taskRollForwardMissed").checked = defaultRollForwardMissed(frequency);
+      }
     }
 
     function toggleSeasonFields() {
@@ -1109,6 +1178,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
         state.completions = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         renderAll();
       });
+
+      onSnapshot(query(skipsRef), snapshot => {
+        state.skips = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderAll();
+      });
     }
     function registerServiceWorker() {
       if (!("serviceWorker" in navigator)) return;
@@ -1155,6 +1229,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
     window.openTaskForm = openTaskForm;
     window.openTaskDetail = openTaskDetail;
     window.setTaskCompletionFromDetail = setTaskCompletionFromDetail;
+    window.skipTaskOccurrence = skipTaskOccurrence;
     window.toggleComplete = toggleComplete;
     window.editTask = editTask;
     window.deactivateTask = deactivateTask;

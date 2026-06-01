@@ -68,7 +68,7 @@
         <div class="home-heading">
           <div>
             <div class="week-title" id="weekTitle"></div>
-            <div class="subtitle">Ugjorte oppgaver blir automatisk med videre til neste uke.</div>
+            <div class="subtitle">Noen oppgaver kan rulles videre hvis de ikke blir gjort.</div>
           </div>
           <button class="btn-primary btn-compact" onclick="openTaskForm()">+ Ny oppgave</button>
         </div>
@@ -163,6 +163,13 @@
               <div id="customIntervalWrap" style="display:none;">
                 <label for="customIntervalWeeks">Antall uker mellom hver gang</label>
                 <input id="customIntervalWeeks" type="number" min="1" value="3" />
+              </div>
+              <div class="full toggle-field">
+                <input id="taskRollForwardMissed" type="checkbox" />
+                <label for="taskRollForwardMissed">
+                  <strong>Rull videre hvis ikke utført</strong>
+                  <span>Bruk dette for oppgaver som skal ligge på Hjem til de er gjort.</span>
+                </label>
               </div>
               <div>
                 <label for="taskAssignedTo">Tildelt til</label>
